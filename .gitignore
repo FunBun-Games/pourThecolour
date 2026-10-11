@@ -1,0 +1,11 @@
+node_modules/
+www/
+dist/
+build/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/App/App/GoogleService-Info.plist
+ios/DerivedData/
+*.ipa
+.DS_Store

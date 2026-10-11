@@ -1,0 +1,1405 @@
+<title>Pour &amp; Sort</title>
+<!--FONTS-->
+<style>
+/* Layout: one-screen game — HUD on top, board fills the middle, booster tray at the bottom. Single night-glass look, deliberately dark. */
+:root {
+  --night: #191c35;
+  --night-2: #23264a;
+  --glass: rgba(236, 240, 255, 0.07);
+  --glass-edge: rgba(236, 240, 255, 0.30);
+  --ink: #f3f1ea;
+  --ink-2: #a9adc9;
+  --amber: #ffbe55;
+  --amber-ink: #2a1a00;
+  --panel: #262a52;
+  --panel-edge: rgba(236, 240, 255, 0.14);
+  --good: #64d39a;
+  --hidden: #474c70;
+  --hidden-2: #2b2f50;
+  --danger: #ff4052;
+  --danger-ink: #ffe9eb;
+  --c0: #ef5a5f; --c1: #f5953e; --c2: #f4d34a; --c3: #4fc171; --c4: #2fbab4;
+  --c5: #4c94ee; --c6: #9a68e3; --c7: #ef77b6; --c8: #eae3d4; --c9: #b07a4e; --c10: #b9e05a; --c11: #a9b2c8;
+  --font-display: "Unbounded", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: radial-gradient(120% 80% at 50% 0%, var(--night-2) 0%, var(--night) 60%) var(--night);
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding-inline: 16px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+  touch-action: manipulation;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 10px; }
+.app { height: 100%; max-width: 640px; margin-inline: auto; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-columns: minmax(0, 1fr); gap: 8px; padding-block: 10px 12px; }
+
+/* HUD */
+.hud { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.level { text-align: center; display: grid; gap: 2px; }
+.level-name { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: 0.01em; }
+.level-sub { font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.level-sub.low { color: var(--danger); font-weight: 800; animation: hardpulse 0.6s ease-in-out infinite; }
+.danger-title { color: var(--danger); }
+.level-sub.hard { color: var(--danger); font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; animation: hardpulse 1.4s ease-in-out infinite; }
+@keyframes hardpulse { 50% { opacity: 0.55; } }
+.app.hard .stage::before { content: ""; position: absolute; inset: -8px -16px; pointer-events: none; border-radius: 28px; background: radial-gradient(80% 60% at 50% 55%, transparent 55%, rgba(255, 64, 82, 0.16)); box-shadow: inset 0 0 0 2px rgba(255, 64, 82, 0.35); animation: hardglow 2.2s ease-in-out infinite; }
+@keyframes hardglow { 50% { box-shadow: inset 0 0 0 2px rgba(255, 64, 82, 0.12); } }
+.hard-intro { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 16px; background: radial-gradient(70% 50% at 50% 50%, rgba(140, 10, 28, 0.82), rgba(20, 4, 10, 0.92)); pointer-events: none; }
+.hard-intro .big { font-family: var(--font-display); font-weight: 700; font-size: clamp(2rem, 11vw, 3.4rem); line-height: 1.05; color: var(--danger-ink); text-shadow: 0 0 24px rgba(255, 64, 82, 0.9); text-wrap: balance; animation: slam 520ms cubic-bezier(.2, 1.4, .4, 1) both; }
+.hard-intro .small { font-weight: 700; color: #ffd0d5; letter-spacing: 0.04em; animation: pop 400ms 250ms ease both; }
+@keyframes slam { from { transform: scale(2.4); opacity: 0; } }
+.rival { justify-self: center; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 10px 3px 3px; border-radius: 999px; background: var(--glass); border: 1px solid var(--panel-edge); font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ava { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 0.68rem; font-weight: 800; color: var(--night); background: var(--rc, var(--amber)); }
+.ava.big { width: 34px; height: 34px; font-size: 0.95rem; }
+.versus { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vs-cell { display: grid; justify-items: center; gap: 6px; padding: 10px 8px; border-radius: 16px; background: var(--glass); border: 1px solid var(--panel-edge); }
+.vs-cell.win { border-color: var(--good); }
+.vs-name { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; }
+.vs-time { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.vs-time.fast { color: var(--good); }
+.vs-moves { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.coins { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 999px; background: var(--glass); border: 1px solid var(--panel-edge); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud .coins { grid-column: 1 / 2; }
+.hud .icon-btn { justify-self: end; }
+.coin { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c8 0 18%, var(--amber) 45%, #c98316 100%); box-shadow: inset 0 0 0 2px rgba(0,0,0,0.12); flex: none; }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: var(--glass); border: 1px solid var(--panel-edge); }
+.icon-btn svg { width: 22px; height: 22px; }
+.hud-left { display: flex; }
+
+/* Board */
+.stage { position: relative; min-height: 0; min-width: 0; display: grid; align-content: center; }
+.board { display: grid; gap: calc(var(--b, 40px) * 0.9); justify-items: center; padding-top: calc(var(--b, 40px) * 1.3); }
+.row { display: flex; justify-content: center; gap: var(--gap, 12px); }
+.tube {
+  position: relative; width: calc(var(--b) + 12px); height: calc(var(--b) * 4 + 8px + 4 * 2px + 8px);
+  border-radius: 8px 8px calc(var(--b) / 2 + 6px) calc(var(--b) / 2 + 6px);
+  background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.06));
+  border: 2px solid var(--glass-edge); border-top-color: transparent;
+  transition: transform 160ms ease, border-color 200ms ease, box-shadow 300ms ease;
+}
+.tube::before { content: ""; position: absolute; left: -6px; right: -6px; top: -4px; height: 6px; border-radius: 4px; background: var(--glass-edge); }
+.tube.sel { border-color: rgba(255, 220, 160, 0.75); }
+.tube.sel::before { background: rgba(255, 220, 160, 0.85); }
+.tube.done { border-color: rgba(100, 211, 154, 0.75); box-shadow: 0 0 22px -6px var(--good); }
+.tube.done::before { background: var(--good); }
+.tube.shake { animation: shake 260ms ease; }
+@keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+.ball {
+  position: absolute; left: 4px; width: var(--b); height: var(--b); border-radius: 50%;
+  bottom: calc(6px + var(--i) * (var(--b) + 2px));
+  background:
+    radial-gradient(circle at 33% 28%, rgba(255,255,255,0.85) 0 8%, rgba(255,255,255,0) 26%),
+    radial-gradient(circle at 50% 55%, var(--c) 0 52%, color-mix(in srgb, var(--c) 62%, #000) 100%);
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.18);
+  transition: transform 170ms cubic-bezier(.3,.8,.3,1.2);
+  will-change: transform;
+}
+.ball.up { transform: translateY(calc(var(--up) * -1)); }
+.ball.moving { transition: none; }
+/* Hidden balls: shown as '?' until they become the top of their tube */
+.ball.hid { background: radial-gradient(circle at 33% 28%, rgba(255,255,255,0.35) 0 8%, rgba(255,255,255,0) 26%), radial-gradient(circle at 50% 55%, var(--hidden) 0 52%, var(--hidden-2) 100%); }
+.ball.hid::after, .layer.hid::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: calc(var(--b) * 0.45); color: rgba(255, 255, 255, 0.72); }
+.layer.hid { background: repeating-linear-gradient(135deg, var(--hidden) 0 6px, var(--hidden-2) 6px 12px); }
+.reveal { animation: reveal 420ms cubic-bezier(.2, 1.3, .4, 1); }
+@keyframes reveal { from { transform: scale(0.5); filter: brightness(2); } }
+/* Locked tube: unusable until a full tube of the key colour is collected */
+.tube.locked .ball, .tube.locked .layer { filter: saturate(0.45) brightness(0.7); }
+.lock { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: repeating-linear-gradient(45deg, rgba(255,255,255,0) 0 10px, rgba(255,255,255,0.09) 10px 14px); z-index: 2; }
+.lock-badge { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: calc(var(--b) * 0.95); height: calc(var(--b) * 0.95); border-radius: 12px; display: grid; place-items: center; background: var(--panel); border: 2px solid var(--c); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+.lock-badge svg { width: 62%; height: 62%; fill: var(--c); }
+.tube.unlocking .lock { animation: unlock 560ms ease forwards; }
+@keyframes unlock { 40% { transform: scale(1.12); } to { transform: scale(1.4); opacity: 0; } }
+.tip-chip { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; margin-inline: auto; }
+
+/* Variant B: liquid in flasks */
+.liquid .tube { overflow: hidden; }
+.liquid .tube::before { display: none; }
+.liquid .tube { border-top: 0; }
+.liquid .tube::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--glass-edge); }
+.liquid .tube.sel { transform: translateY(-14px); }
+.liquid .tube.sel::after, .liquid .tube.done::after { background: inherit; }
+.liquid .tube.sel::after { background: rgba(255, 220, 160, 0.85); }
+.liquid .tube.done::after { background: var(--good); }
+.layer {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(var(--i) * (var(--b) + 2px));
+  height: calc(var(--b) + 2px);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 82%, #000), var(--c) 35%, color-mix(in srgb, var(--c) 80%, #fff) 60%, var(--c) 80%);
+}
+.layer.surface::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: color-mix(in srgb, var(--c) 55%, #fff); opacity: 0.8; }
+.layer.grow { transform-origin: bottom; }
+.stream { position: absolute; width: 6px; border-radius: 3px; pointer-events: none; background: var(--c); transform-origin: top center; z-index: 5; }
+.spark { position: absolute; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; background: var(--c); }
+.hint { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; color: var(--ink-2); font-size: 0.9rem; line-height: 1.4; padding-inline: 8px; text-wrap: balance; margin: 0; }
+.hint.warn { color: var(--amber); }
+
+/* Tools */
+.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tool { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px 9px; border-radius: 18px; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.tool svg { width: 26px; height: 26px; }
+.tool:active { transform: scale(0.96); }
+.tool.pulse { animation: pulse 1.2s ease infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255, 190, 85, 0.45); } }
+.badge { position: absolute; top: -7px; right: 8px; min-width: 22px; height: 22px; padding-inline: 6px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; background: var(--amber); color: var(--amber-ink); font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.badge .coin { width: 12px; height: 12px; }
+.badge.ad { background: var(--ink); color: var(--night); }
+
+.banner { display: grid; place-items: center; height: 50px; border-radius: 10px; border: 1px dashed var(--panel-edge); color: var(--ink-2); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Overlays */
+.overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); background: rgba(10, 11, 26, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.card { width: min(100%, 380px); max-height: 100%; overflow: auto; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 26px; padding: 24px 20px 20px; display: grid; gap: 14px; text-align: center; animation: pop 280ms cubic-bezier(.2,.9,.3,1.25); }
+@keyframes pop { from { transform: scale(0.88); opacity: 0; } }
+.card h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.card p { margin: 0; color: var(--ink-2); line-height: 1.45; }
+.stars { display: flex; justify-content: center; gap: 10px; }
+.star { width: 46px; height: 46px; fill: rgba(255,255,255,0.12); }
+.star.on { fill: var(--amber); animation: starpop 420ms cubic-bezier(.2,.9,.3,1.4) both; }
+.star:nth-child(2) { width: 58px; height: 58px; margin-top: -8px; }
+@keyframes starpop { from { transform: scale(0) rotate(-40deg); } }
+.reward { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.reward .coin { width: 26px; height: 26px; }
+.btns { display: grid; gap: 10px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 12px 18px; border-radius: 16px; font-weight: 700; font-size: 1rem; background: var(--glass); border: 1px solid var(--panel-edge); }
+.btn.primary { background: var(--amber); color: var(--amber-ink); border-color: transparent; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.01em; }
+.btn .tag { font-size: 0.72rem; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: var(--ink); color: var(--night); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.ad-screen { width: min(100%, 380px); aspect-ratio: 9 / 14; max-height: 80%; display: grid; place-items: center; align-content: center; gap: 12px; border-radius: 22px; border: 2px dashed var(--panel-edge); background: repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 14px, rgba(255,255,255,0.06) 14px 28px), var(--night); padding: 24px; text-align: center; position: relative; }
+.ad-screen .kind { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber); font-weight: 700; }
+.ad-screen .count { font-family: var(--font-display); font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ad-close { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; background: var(--glass); border: 1px solid var(--panel-edge); font-size: 1.2rem; }
+
+.sheet .card { text-align: left; gap: 16px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.setting label, .setting span { font-weight: 600; }
+.seg { display: inline-flex; border-radius: 12px; border: 1px solid var(--panel-edge); overflow: hidden; }
+.seg button { padding: 8px 12px; font-weight: 700; font-size: 0.85rem; }
+.seg button[aria-pressed="true"] { background: var(--amber); color: var(--amber-ink); }
+select { font: inherit; color: var(--ink); background: var(--night); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 8px 10px; }
+.stats-wrap { overflow-x: auto; border: 1px solid var(--panel-edge); border-radius: 14px; max-height: 240px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 8px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { position: sticky; top: 0; background: var(--panel); color: var(--ink-2); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+tr + tr td { border-top: 1px solid var(--panel-edge); }
+.tester { display: grid; gap: 16px; }
+.shop-name { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.links { text-align: center; }
+.links a { color: var(--ink-2); }
+.app.native .banner { border: 0; height: var(--native-banner-h, 50px); }
+.app.native .banner span { display: none; }
+.section-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); font-weight: 700; margin: 0; }
+.note { font-size: 0.8rem; color: var(--ink-2); margin: 0; line-height: 1.45; }
+
+.toast { position: fixed; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--night); font-weight: 700; padding: 10px 16px; border-radius: 999px; font-size: 0.9rem; max-width: calc(100% - 32px); text-align: center; animation: pop 220ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+</style>
+
+<div class="app" id="app">
+  <header class="hud">
+    <div class="hud-left"><div class="coins" aria-live="polite"><span class="coin" aria-hidden="true"></span><span id="coins">100</span></div></div>
+    <div class="level"><div class="level-name" id="levelName">Level 1</div><div class="level-sub" id="levelSub"></div><div class="rival" id="rival"><span class="ava" id="rivalAva"></span><span id="rivalText"></span></div></div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    </button>
+  </header>
+  <main class="stage" id="stage">
+    <div class="board" id="board"></div>
+    <p class="hint" id="hint"></p>
+  </main>
+  <nav class="tools">
+    <button class="tool" id="undoBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+      <span data-t="undo">Undo</span><span class="badge" id="undoBadge">3</span>
+    </button>
+    <button class="tool" id="tubeBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h6M9 3v13a3 3 0 0 0 6 0V3"/><path d="M19 8v6M16 11h6"/></svg>
+      <span data-t="addTube">Add tube</span><span class="badge" id="tubeBadge"></span>
+    </button>
+    <button class="tool" id="restartBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      <span data-t="restart">Restart</span>
+    </button>
+  </nav>
+  <div class="banner" id="banner" hidden><span data-t="bannerDemo">Banner ad · demo</span></div>
+</div>
+
+<div class="hard-intro" id="hardIntro" hidden><div class="big" id="hardBig"></div><div class="small" id="hardSmall"></div></div>
+
+<div class="overlay" id="tipOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="tipTitle">
+    <div id="tipIcon"></div>
+    <h2 id="tipTitle"></h2>
+    <p id="tipText"></p>
+    <div class="btns"><button class="btn primary" id="tipOk"></button></div>
+  </div>
+</div>
+
+<div class="overlay" id="failOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="failTitle">
+    <h2 id="failTitle" class="danger-title"></h2>
+    <p id="failText"></p>
+    <div class="btns">
+      <button class="btn primary" id="reviveAdBtn"><span id="reviveAdLabel"></span><span class="tag" data-t="adTag">AD</span></button>
+      <button class="btn" id="reviveCoinBtn"></button>
+      <button class="btn" id="failRestartBtn" data-t="failRestart">Restart</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="winOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="stars" id="stars"></div>
+    <h2 id="winTitle"></h2>
+    <div class="versus">
+      <div class="vs-cell" id="vsYou"><span class="ava big" style="--rc: var(--amber)" id="youAva"></span><span class="vs-name" data-t="you">You</span><span class="vs-moves" id="youMoves"></span><span class="vs-time" id="youTime"></span></div>
+      <div class="vs-cell" id="vsRival"><span class="ava big" id="rivalAvaBig"></span><span class="vs-name" id="rivalNameBig"></span><span class="vs-moves" id="rivalMoves"></span><span class="vs-time" id="rivalTime"></span></div>
+    </div>
+    <p id="winText"></p>
+    <div class="reward"><span class="coin" aria-hidden="true"></span><span id="winCoins">+0</span></div>
+    <div class="btns">
+      <button class="btn" id="doubleBtn"><span id="doubleLabel">+75</span><span class="tag" data-t="adTag">AD</span></button>
+      <button class="btn primary" id="nextBtn" data-t="next">Next</button>
+      <button class="btn" id="replayLevelBtn"></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="offerOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="offerTitle">
+    <h2 id="offerTitle"></h2>
+    <p id="offerText"></p>
+    <div class="btns">
+      <button class="btn" id="offerAdBtn"><span data-t="watchAd">Watch an ad</span><span class="tag" data-t="adTag">AD</span></button>
+      <button class="btn primary" id="offerCoinBtn"></button>
+      <button class="btn" id="offerCancel" data-t="notNow">Not now</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="preAdOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="preAdTitle">
+    <h2 id="preAdTitle"></h2>
+    <div class="reward"><span class="coin" aria-hidden="true"></span><span id="preAdCoins">+0</span></div>
+    <p id="preAdText"></p>
+    <div class="btns"><button class="btn primary" id="preAdGo"></button></div>
+  </div>
+</div>
+
+<div class="overlay" id="adOverlay" hidden>
+  <div class="ad-screen" role="dialog" aria-modal="true" aria-labelledby="adKind">
+    <span class="kind" id="adKind"></span>
+    <span class="count" id="adCount">5</span>
+    <p class="note" id="adNote"></p>
+    <button class="ad-close" id="adClose" aria-label="Close" hidden>✕</button>
+  </div>
+</div>
+
+<div class="overlay" id="endOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="btns">
+      <button class="btn primary" id="replayBtn" data-t="replay">Play again from level 1</button>
+      <button class="btn" id="endStatsBtn" data-t="openStats">Open test stats</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay sheet" id="settingsOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle" data-t="settings">Settings</h2>
+    <div class="setting"><span data-t="language">Language</span>
+      <div class="seg" role="group"><button id="langUk" aria-pressed="false">UA</button><button id="langEn" aria-pressed="false">EN</button></div></div>
+    <div class="setting"><span data-t="sound">Sound</span>
+      <div class="seg" role="group"><button id="soundOn" aria-pressed="false" data-t="on">On</button><button id="soundOff" aria-pressed="false" data-t="off">Off</button></div></div>
+    <div class="setting"><span data-t="look">Look</span>
+      <div class="seg" role="group"><button id="lookBalls" aria-pressed="false" data-t="balls">Balls</button><button id="lookLiquid" aria-pressed="false" data-t="liquidName">Liquid</button></div></div>
+    <p class="section-label" data-t="shop">Shop</p>
+    <div class="setting"><span data-t="noAds">Remove ads</span>
+      <button class="btn" id="noAdsBtn" style="min-height:40px;padding:8px 12px"></button></div>
+    <div class="setting"><span class="shop-name"><span class="coin" aria-hidden="true"></span>500</span>
+      <button class="btn" id="coins500Btn" style="min-height:40px;padding:8px 12px"></button></div>
+    <div class="setting"><span class="shop-name"><span class="coin" aria-hidden="true"></span>1500</span>
+      <button class="btn" id="coins1500Btn" style="min-height:40px;padding:8px 12px"></button></div>
+    <div class="btns">
+      <button class="btn" id="restoreBtn" data-t="restore">Restore purchases</button>
+      <button class="btn" id="privacyBtn" data-t="privacyChoices" hidden>Ad privacy choices</button>
+    </div>
+    <div class="tester" id="testerTools">
+      <p class="section-label" data-t="testerTools">For testing</p>
+      <div class="setting"><label for="jumpSel" data-t="jump">Go to level</label><select id="jumpSel"></select></div>
+      <div class="stats-wrap"><table id="statsTable"></table></div>
+      <p class="note" id="audioState"></p>
+      <p class="note" data-t="statsNote">Stats stay on this phone only. Min = fewest possible moves.</p>
+      <div class="btns"><button class="btn" id="resetBtn" data-t="reset">Reset progress</button></div>
+    </div>
+    <p class="note links"><a id="privacyLink" target="_blank" rel="noopener" data-t="privacyPolicy">Privacy policy</a></p>
+    <div class="btns">
+      <button class="btn primary" id="closeSettings" data-t="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LEVELS = __LEVELS__;
+
+// Parameters that will live in remote config in the real app
+// Ad value ladder (founder's rule): rescue ad = X, ad after a win = 3/4 X, interstitial bonus = 1/2 X.
+// The rescue reward is a booster (extra tube or +3 undos), so the tube price in coins is X too.
+const AD_X = 100;
+const CFG = {
+  cap: 4,
+  freeUndos: 3,
+  undoAdRefill: 3,
+  adX: AD_X,
+  addTubeCost: AD_X,
+  winAdBonus: Math.round(AD_X * 0.75),
+  interBonus: Math.round(AD_X * 0.5),
+  preAdSeconds: 2,
+  timedFrom: 20,          // countdown from this level on
+  timeFactor: 2,          // limit = rival time × factor + 20 s
+  timeFactorHard: 1.6,    // tighter on hard levels
+  reviveSecs: 30,         // a revive adds this much time
+  startCoins: 100,
+  interFrom: 12,      // first interstitial after this level
+  interEvery: 2,      // then after every N levels
+  interAlwaysFrom: 30,
+  bannerFrom: 20,
+  interSeconds: 5,
+  rewardSeconds: 3,
+  noAdsPrice: '$4.99',
+  coins500Price: '$1.99',
+  coins1500Price: '$4.99',
+  variantSplit: 0.5,      // share of new players who get the liquid look
+  askTrackingAfter: 2     // iOS tracking prompt after this level
+};
+function deriveCfg() {
+  CFG.addTubeCost = CFG.adX;
+  CFG.winAdBonus = Math.round(CFG.adX * 0.75);
+  CFG.interBonus = Math.round(CFG.adX * 0.5);
+}
+const P = window.Platform || null;              // native bridge (absent in the web prototype)
+const NATIVE = !!(P && P.native);
+const NATIVE_ADS = () => NATIVE && P.ads.enabled;
+const track = (name, params) => { if (P) P.track(name, params); };
+const PRIVACY_URL = (P && P.env && P.env.privacyUrl) || '';
+
+const T = {
+  uk: {
+    level: n => `Рівень ${n}`, moves: (m, c) => `Ходів: ${m} · ${c}`, hardLevel: (m, c) => `Складний · ходів ${m} · ${c}`,
+    rivalChip: (name, n, c) => `Рекорд: ${name} · ${n} · ${c}`, you: 'Ви', youInitial: 'В', movesN: n => `${n} ходів`,
+    rivals: ['Фелікс', 'Марта', 'Отто', 'Ліна', 'Бруно', 'Соня'],
+    beatIt: name => `Побити рекорд: ${name}`, replayLevel: 'Перепройти рівень',
+    tied: () => 'Ви повторили рекорд і були швидші. Це три зірки!', slower: d => `Ходів — як у рекорді, але повільніше на ${d} с. Третя зірка — за швидкість.`,
+    lockedToast: 'Колба відкриється, коли ви зберете повну колбу кольору на замку',
+    unlockedToast: 'Колбу відкрито!',
+    tipOk: 'Зрозуміло',
+    tipLockTitle: 'Заблокована колба', tipLockText: 'Колір на замку — ключ. Зберіть повну колбу цього кольору, і замок зникне. До того в цю колбу не можна ні наливати, ні брати з неї.',
+    tipHiddenTitle: 'Приховані кульки', tipHiddenText: 'Кульки зі знаком «?» відкриваються, коли стають верхніми у своїй колбі. Плануйте ходи з запасом.',
+    tipOneTitle: 'Лише одна порожня колба', tipOneText: 'Місця для маневру вдвічі менше. Подумайте, перш ніж переливати.',
+    shop: 'Магазин', restore: 'Відновити покупки', privacyChoices: 'Налаштування реклами', privacyPolicy: 'Політика конфіденційності',
+    buy: p => `Купити · ${p}`, buyDemo: p => `Купити · ${p} (демо)`, coinsAdded: n => `+${n} монет`, restored: 'Покупки відновлено', nothingRestored: 'Покупок для відновлення немає',
+    purchaseFailed: 'Покупку не завершено', adNotReady: 'Реклама ще завантажується — спробуйте за мить',
+    almost: 'Трошки не вистачило!', timedMoves: (m, c) => `Ходів: ${m} · залишилось ${c}`, timedHard: (m, c) => `Складний · ${m} · ${c}`,
+    timeUpTitle: 'Час вийшов!', timeUpText: n => `Залишилось зібрати ${n} ${n === 1 ? 'колбу' : n < 5 ? 'колби' : 'колб'}. Додати час?`,
+    reviveAd: s => `+${s} секунд`, reviveCoins: (s, c) => `+${s} с за ${c} монет`, failRestart: 'Почати рівень заново', timedToast: s => `Рівень на час: ${s}`,
+    hardBig: 'Складний рівень', hardSmall: (name, n) => `Рекорд: ${name} · ${n} ходів · подвійні монети`, clock: s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, behind: (name, d) => `До рекорду не вистачило ${d} ${d === 1 ? 'ходу' : 'ходів'}. Спробуєте ще?`,
+    replayReward: 'За повтор без покращення — 5 монет.', hardToast: 'Складний рівень: подвійні монети',
+    undo: 'Скасувати', addTube: 'Пробірка', restart: 'Заново', bannerDemo: 'Банер · демо',
+    double: 'Бонус', winAd: n => `+${n} монет`, adTag: 'РЕКЛАМА',
+    look: 'Вигляд', balls: 'Кульки', liquidName: 'Рідина',
+    preAdTitle: 'Коротка реклама', preAdText: n => `Після неї ви отримаєте ${n} монет.`, preAdGo: 'Дивитися',
+    bonusGot: n => `+${n} монет за перегляд`, next: 'Далі', watchAd: 'Подивитися рекламу', notNow: 'Не зараз',
+    winTitles: ['Готово!', 'Непогано!', 'Ідеально!'],
+    winText: (m, min) => `${m} ходів. Найкоротший розв'язок — ${min}.`,
+    hint1: 'Торкніться пробірки, а потім іншої, щоб перелити верхні кульки. Наливати можна на кульку того ж кольору або в порожню пробірку.',
+    hint2: 'Мета: у кожній пробірці — кульки одного кольору.',
+    stuck: 'Ходів більше немає. Скасуйте хід або додайте пробірку.',
+    undoEmptyTitle: 'Скасування закінчились', undoEmptyText: `Подивіться рекламу й отримайте ще ${CFG.undoAdRefill} скасування.`,
+    tubeTitle: 'Додати порожню пробірку?', tubeText: 'Одна додаткова пробірка на рівень.',
+    payCoins: c => `За ${c} монет`, notEnough: 'Не вистачає монет',
+    tubeUsed: 'Пробірку на цьому рівні вже додано', nothingToUndo: 'Немає що скасовувати',
+    adInter: 'Міжрівнева реклама · демо', adReward: 'Реклама за нагороду · демо',
+    adNote: 'Тут у справжній грі буде відео рекламної мережі.', rewardGot: 'Нагороду отримано',
+    endTitle: `Усі ${LEVELS.length} рівнів пройдено!`, endText: 'Дякуємо за тест. Відкрийте статистику й надішліть скріншот у чат.',
+    replay: 'Грати знову з рівня 1', openStats: 'Відкрити статистику тесту',
+    settings: 'Налаштування', language: 'Мова', sound: 'Звук', on: 'Увімк.', off: 'Вимк.',
+    noAds: 'Без реклами', buyNoAds: p => `Купити · ${p} (демо)`, noAdsOn: 'Куплено ✓',
+    testerTools: 'Для тестування', jump: 'Перейти на рівень',
+    statsNote: 'Статистика зберігається лише на цьому телефоні. Мін. — найменша можлива кількість ходів.',
+    reset: 'Скинути прогрес', resetConfirm: 'Торкніться ще раз, щоб скинути', close: 'Закрити',
+    th: ['Рів.', 'Ходи', 'Мін.', 'Час', 'Скас.', '+Пр.', '★', 'Вид'], vBalls: 'К', vLiquid: 'Р', noStats: 'Пройдіть перший рівень — тут з’явиться статистика.',
+    purchased: 'Рекламу вимкнено (демо-покупка)', tubeAdded: 'Пробірку додано', undosAdded: n => `+${n} скасування`
+  },
+  en: {
+    level: n => `Level ${n}`, moves: (m, c) => `Moves: ${m} · ${c}`, hardLevel: (m, c) => `Hard · moves ${m} · ${c}`,
+    rivalChip: (name, n, c) => `Record: ${name} · ${n} · ${c}`, you: 'You', youInitial: 'Y', movesN: n => `${n} moves`,
+    rivals: ['Felix', 'Marta', 'Otto', 'Lina', 'Bruno', 'Sonya'],
+    beatIt: name => `Beat ${name}'s record`, replayLevel: 'Replay level',
+    tied: () => 'You matched the record and were faster. Three stars!', slower: d => `Moves match the record, but ${d}s slower. The third star is for speed.`,
+    lockedToast: 'This tube opens when you complete a full tube of the lock colour',
+    unlockedToast: 'Tube unlocked!',
+    tipOk: 'Got it',
+    tipLockTitle: 'Locked tube', tipLockText: 'The lock colour is the key. Complete a full tube of that colour and the lock disappears. Until then you cannot pour into or out of it.',
+    tipHiddenTitle: 'Hidden balls', tipHiddenText: 'Balls marked "?" are revealed when they reach the top of their tube. Plan a few moves ahead.',
+    tipOneTitle: 'Only one empty tube', tipOneText: 'Half the room to manoeuvre. Think before you pour.',
+    shop: 'Shop', restore: 'Restore purchases', privacyChoices: 'Ad privacy choices', privacyPolicy: 'Privacy policy',
+    buy: p => `Buy · ${p}`, buyDemo: p => `Buy · ${p} (demo)`, coinsAdded: n => `+${n} coins`, restored: 'Purchases restored', nothingRestored: 'Nothing to restore',
+    purchaseFailed: 'Purchase not completed', adNotReady: 'The ad is still loading — try again in a moment',
+    almost: 'So close!', timedMoves: (m, c) => `Moves: ${m} · ${c} left`, timedHard: (m, c) => `Hard · ${m} · ${c}`,
+    timeUpTitle: 'Time is up!', timeUpText: n => `${n} tube${n === 1 ? '' : 's'} left to sort. Add time?`,
+    reviveAd: s => `+${s} seconds`, reviveCoins: (s, c) => `+${s}s for ${c} coins`, failRestart: 'Restart the level', timedToast: s => `Timed level: ${s}`,
+    hardBig: 'Hard level', hardSmall: (name, n) => `Record: ${name} · ${n} moves · double coins`, clock: s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, behind: (name, d) => `${d} move${d === 1 ? '' : 's'} short of the record. Try again?`,
+    replayReward: 'Replays without a better score give 5 coins.', hardToast: 'Hard level: double coins',
+    undo: 'Undo', addTube: 'Tube', restart: 'Restart', bannerDemo: 'Banner ad · demo',
+    double: 'Bonus', winAd: n => `+${n} coins`, adTag: 'AD',
+    look: 'Look', balls: 'Balls', liquidName: 'Liquid',
+    preAdTitle: 'Short ad', preAdText: n => `You get ${n} coins after it.`, preAdGo: 'Watch',
+    bonusGot: n => `+${n} coins for watching`, next: 'Next', watchAd: 'Watch an ad', notNow: 'Not now',
+    winTitles: ['Done!', 'Not bad!', 'Perfect!'],
+    winText: (m, min) => `${m} moves. The shortest solution is ${min}.`,
+    hint1: 'Tap a tube, then another one to pour the top balls. Pour onto the same color or into an empty tube.',
+    hint2: 'Goal: one color per tube.',
+    stuck: 'No moves left. Undo a move or add a tube.',
+    undoEmptyTitle: 'Out of undos', undoEmptyText: `Watch an ad to get ${CFG.undoAdRefill} more undos.`,
+    tubeTitle: 'Add an empty tube?', tubeText: 'One extra tube per level.',
+    payCoins: c => `For ${c} coins`, notEnough: 'Not enough coins',
+    tubeUsed: 'You already added a tube on this level', nothingToUndo: 'Nothing to undo',
+    adInter: 'Interstitial ad · demo', adReward: 'Rewarded ad · demo',
+    adNote: 'In the real game an ad network video plays here.', rewardGot: 'Reward received',
+    endTitle: `All ${LEVELS.length} levels done!`, endText: 'Thanks for testing. Open the stats and send a screenshot to the chat.',
+    replay: 'Play again from level 1', openStats: 'Open test stats',
+    settings: 'Settings', language: 'Language', sound: 'Sound', on: 'On', off: 'Off',
+    noAds: 'Remove ads', buyNoAds: p => `Buy · ${p} (demo)`, noAdsOn: 'Purchased ✓',
+    testerTools: 'For testing', jump: 'Go to level',
+    statsNote: 'Stats stay on this phone only. Best = fewest possible moves.',
+    reset: 'Reset progress', resetConfirm: 'Tap again to reset', close: 'Close',
+    th: ['Lvl', 'Moves', 'Best', 'Time', 'Undo', '+Tube', '★', 'Look'], vBalls: 'B', vLiquid: 'L', noStats: 'Finish level 1 and your stats appear here.',
+    purchased: 'Ads removed (demo purchase)', tubeAdded: 'Tube added', undosAdded: n => `+${n} undos`
+  }
+};
+
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('pourSort:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { const j = JSON.stringify(v); try { localStorage.setItem('pourSort:' + k, j); } catch (e) {} if (P) P.persist(k, j); }
+};
+const DEFAULT_SAVE = { level: 0, coins: CFG.startCoins, noAds: false, sound: true, lang: null, sinceAd: 0, stats: {} };
+let save = Object.assign({}, DEFAULT_SAVE, store.get('save', {}));
+if (!save.lang) save.lang = 'uk'; // founder test build: Ukrainian by default, EN in settings
+// A/B: each new player gets one look at random; it can be switched in settings for testing
+
+const persist = () => store.set('save', save);
+const tr = () => T[save.lang] || T.uk;
+
+/* ---------- Sound ---------- */
+const sfx = (() => {
+  let ctx = null, master = null;
+  const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+  // iOS can leave the context 'suspended' or 'interrupted' (calls, other apps, overlays), so every tap re-checks it
+  const ac = () => {
+    if (ctx && ctx.state === 'closed') { ctx = null; master = null; }
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); } catch (e) { return null; }
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.ratio.value = 6;
+      master = ctx.createGain(); master.gain.value = 0.9;
+      master.connect(comp).connect(ctx.destination);
+    }
+    if (ctx.state !== 'running') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  };
+  // iOS sometimes leaves the context stuck after overlays or system sounds. On every tap:
+  // resume it and play a silent buffer (iOS's unlock); if it is still not running shortly after, rebuild it on the next tap.
+  let rebuild = false;
+  const heal = () => {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) {}
+    if (rebuild && ctx) { try { ctx.close(); } catch (e) {} ctx = null; master = null; rebuild = false; }
+    const c = ac(); if (!c) return;
+    if (c.state !== 'running') {
+      try { const b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch (e) {}
+      setTimeout(() => { if (ctx && ctx.state !== 'running') rebuild = true; }, 250);
+    }
+  };
+  ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, heal, { capture: true, passive: true }));
+  const tone = (freq, at, dur, vol, type = 'sine') => {
+    if (!save.sound) return;
+    const c = ac(); if (!c) return;
+    const t0 = c.currentTime + Math.max(0, at);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(master);
+    o.start(t0); o.stop(t0 + dur + 0.03);
+  };
+  const f = c => 392 * Math.pow(2, scale[c % scale.length] / 12);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx) ac(); });
+  return {
+    unlock: ac,
+    state: () => ctx ? ctx.state : 'not started',
+    alarm: () => { tone(98, 0, 0.5, 0.12, 'triangle'); tone(92.5, 0.28, 0.6, 0.12, 'triangle'); tone(196, 0, 0.18, 0.05, 'square'); },
+    pick: c => tone(f(c) * 2, 0, 0.07, 0.04, 'triangle'),
+    // all landings of one pour are scheduled up front on the audio clock: no work at animation end, no stutter
+    drops: (c, n, firstAt, step) => { for (let k = 0; k < n; k++) tone(f(c) * (1 + k * 0.06), firstAt + k * step, 0.2, 0.1 - k * 0.015); },
+    glug: (c, n, start, dur) => { for (let k = 0; k < n * 3; k++) tone(f(c) * (0.5 + 0.08 * (k % 3)) * (1 + k * 0.02), start + k * dur / (n * 3), 0.09, 0.05); },
+    done: c => { tone(f(c), 0, 0.3, 0.09); tone(f(c) * 1.5, 0.08, 0.35, 0.07); tone(f(c) * 2, 0.16, 0.5, 0.06); },
+    win: () => [0, 4, 7, 12, 16].forEach((s, k) => tone(523.25 * Math.pow(2, s / 12), k * 0.09, 0.55, 0.08)),
+    nope: () => tone(140, 0, 0.12, 0.05, 'square'),
+    unlockSound: () => { [0, 4, 7, 11].forEach((s, k) => tone(659 * Math.pow(2, s / 12), k * 0.06, 0.25, 0.06, 'triangle')); },
+    tick: r => tone(r <= 3 ? 1046 : 880, 0, 0.06, r <= 3 ? 0.07 : 0.045, 'square'),
+    coin: () => { tone(1318, 0, 0.12, 0.05); tone(1760, 0.07, 0.2, 0.05); }
+  };
+})();
+const buzz = ms => {
+  if (NATIVE) { P.haptic(typeof ms === 'string' ? ms : Array.isArray(ms) ? 'warning' : ms >= 20 ? 'medium' : 'light'); return; }
+  const pattern = ms === 'success' ? [20, 40, 20] : ms;
+  try { navigator.vibrate && navigator.vibrate(pattern); } catch (e) {}
+};
+
+/* ---------- Game state ---------- */
+let S = null;
+const board = $('#board'), stage = $('#stage');
+
+const isDoneTube = t => t.length === CFG.cap && t.every(c => c === t[0]);
+const isWon = tubes => tubes.every(t => t.length === 0 || isDoneTube(t));
+const topRun = t => { if (!t.length) return 0; const c = t[t.length - 1]; let r = 1; while (r < t.length && t[t.length - 1 - r] === c) r++; return r; };
+const lockOf = () => S && LEVELS[S.li].lock ? LEVELS[S.li].lock : null;
+const lockOpen = () => { const L = lockOf(); return !L || S.tubes.some(t => isDoneTube(t) && t[0] === L.k); };
+const isLocked = i => { const L = lockOf(); return !!L && L.t === i && !lockOpen(); };
+const isHid = (ti, p) => !!(S.hidden && S.hidden[ti] && S.hidden[ti][p]);
+const canPour = (i, j) => {
+  if (i === j) return false;
+  if (isLocked(i) || isLocked(j)) return false;
+  const a = S.tubes[i], b = S.tubes[j];
+  if (!a.length || b.length >= CFG.cap) return false;
+  return !b.length || b[b.length - 1] === a[a.length - 1];
+};
+const usefulMoveExists = () => {
+  for (let i = 0; i < S.tubes.length; i++) {
+    const a = S.tubes[i];
+    if (!a.length || isDoneTube(a)) continue;
+    for (let j = 0; j < S.tubes.length; j++) {
+      if (!canPour(i, j)) continue;
+      if (!S.tubes[j].length && topRun(a) === a.length) continue;
+      return true;
+    }
+  }
+  return false;
+};
+
+function newLevelState(li) {
+  const L = LEVELS[li];
+  return { li, tubes: L.tubes.map(t => t.slice()), hidden: L.tubes.map((t, ti) => t.map((_, p) => (L.hidden && L.hidden[ti] && L.hidden[ti][p]) ? 1 : 0)), history: [], undos: CFG.freeUndos, undosUsed: 0, extra: false, moves: 0, t0: Date.now(), restarts: 0, bonus: 0, fails: 0, failed: false };
+}
+
+function hardIntro() {
+  const t = tr(), rv = rivalOf(S.li);
+  $('#hardBig').textContent = t.hardBig;
+  $('#hardSmall').textContent = t.hardSmall(rv.name, LEVELS[S.li].minMoves);
+  $('#hardIntro').hidden = false;
+  sfx.alarm(); buzz([40, 60, 40]);
+  S.busy = true;
+  setTimeout(() => { $('#hardIntro').hidden = true; if (S) { S.busy = false; S.t0 = Date.now(); updateHud(); } }, 1700);
+}
+
+function showTips(li) {
+  if (!S || S.li !== li) return;
+  const L = LEVELS[li], t = tr();
+  save.tips = save.tips || {};
+  const list = [];
+  if (L.lock && !save.tips.lock) list.push(['lock', t.tipLockTitle, t.tipLockText, `<div class="tip-chip lock-badge" style="position:static;transform:none;--c: var(--c${L.lock.k});--b:44px"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3h1.5A1.5 1.5 0 0 1 20 11.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20.5v-9A1.5 1.5 0 0 1 5.5 10H7zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg></div>`]);
+  if (L.hidden && L.hidden.flat().some(Boolean) && !save.tips.hidden) list.push(['hidden', t.tipHiddenTitle, t.tipHiddenText, '<div style="position:relative;width:44px;height:44px;margin-inline:auto;--b:44px"><div class="ball hid" style="--i:0;bottom:0;left:0"></div></div>']);
+  if (L.tubes.filter(x => !x.length).length === 1 && li > 0 && !save.tips.one) list.push(['one', t.tipOneTitle, t.tipOneText, '']);
+  if (!list.length) return;
+  pauseClock();
+  const next = () => {
+    const item = list.shift();
+    if (!item) { hide('#tipOverlay'); resumeClock(); persist(); return; }
+    save.tips[item[0]] = 1;
+    $('#tipIcon').innerHTML = item[3];
+    $('#tipTitle').textContent = item[1];
+    $('#tipText').textContent = item[2];
+    $('#tipOk').textContent = t.tipOk;
+    show('#tipOverlay');
+    $('#tipOk').onclick = next;
+  };
+  next();
+}
+
+function startLevel(li, restore) {
+  S = restore ? Object.assign(newLevelState(li), restore) : newLevelState(li);
+  if (restore) {
+    // snapshots from older builds: no hidden flags / old history format
+    if (!restore.hidden || restore.hidden.length !== S.tubes.length) S.hidden = S.tubes.map(t => t.map(() => 0));
+    if (S.history.length && Array.isArray(S.history[0])) S.history = [];
+  }
+  S.sel = null; S.busy = false; S.won = false;
+  pauseDepth = 0;
+  lockWasOpen = lockOpen();
+  render();
+  updateHud();
+  $('#app').classList.toggle('hard', !!LEVELS[li].hard);
+  if (LEVELS[li].hard && !restore) hardIntro();
+  else if (limitOf(li) && !restore) toast(tr().timedToast(tr().clock(limitOf(li))));
+  if (!restore) setTimeout(() => showTips(li), LEVELS[li].hard ? 1800 : 300);
+  if (!restore) {
+    const L = LEVELS[li];
+    track('level_start', { level: li + 1, variant: save.variant, hard: !!L.hard, timed: !!limitOf(li), lock: !!L.lock, hidden: !!L.hidden, one_empty: L.tubes.filter(x => !x.length).length === 1, replay: (save.best && save.best[li]) ? 1 : 0 });
+  }
+  if (li === 0 && S.moves === 0) hint(tr().hint1);
+  else if (li === 1 && S.moves === 0) hint(tr().hint2);
+  else hint('');
+}
+
+/* ---------- Rendering ---------- */
+function rowsFor(n) {
+  if (n <= 6) return [n];
+  const a = Math.ceil(n / 2);
+  return [a, n - a];
+}
+
+function sizeBoard() {
+  const n = S.tubes.length, rows = rowsFor(n), per = Math.max(...rows);
+  const gap = per >= 6 ? 10 : 16;
+  const w = Math.min(stage.clientWidth, 600);
+  const h = stage.clientHeight - 56;
+  const byW = (w - (per - 1) * gap) / per - 12;
+  // per row: tube (4b + 24) + lift room (1.3b) ; rows gap 0.9b
+  const byH = rows.length === 1 ? (h - 24) / 5.3 : (h - 48) / 11.5;
+  const b = Math.max(24, Math.min(54, Math.floor(Math.min(byW, byH))));
+  board.style.setProperty('--b', b + 'px');
+  board.style.setProperty('--gap', gap + 'px');
+  return b;
+}
+
+function render() {
+  board.innerHTML = '';
+  board.classList.toggle('liquid', liquidMode());
+  const rows = rowsFor(S.tubes.length);
+  let idx = 0;
+  rows.forEach(count => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    for (let k = 0; k < count; k++, idx++) {
+      const i = idx;
+      const tube = document.createElement('button');
+      tube.className = 'tube';
+      tube.dataset.i = i;
+      tube.setAttribute('aria-label', `${i + 1}`);
+      fillTube(tube, i);
+      tube.addEventListener('click', () => onTube(i));
+      row.appendChild(tube);
+    }
+    board.appendChild(row);
+  });
+  sizeBoard();
+}
+
+const liquidMode = () => save.variant === 'liquid';
+
+function fillTube(tube, i) {
+  tube.querySelectorAll('.ball, .layer').forEach(el => el.remove());
+  const t = S.tubes[i];
+  t.forEach((c, n) => {
+    const el = liquidMode() ? makeLayer(c, n, n === t.length - 1) : makeBall(c, n);
+    if (isHid(i, n)) el.classList.add('hid');
+    tube.appendChild(el);
+  });
+  tube.classList.toggle('done', isDoneTube(t));
+  tube.querySelectorAll('.lock').forEach(el => el.remove());
+  tube.classList.toggle('locked', isLocked(i));
+  if (isLocked(i)) {
+    const k = lockOf().k;
+    const lock = document.createElement('div');
+    lock.className = 'lock';
+    lock.innerHTML = `<div class="lock-badge" style="--c: var(--c${k})"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1.5A1.5 1.5 0 0 1 20 11.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20.5v-9A1.5 1.5 0 0 1 5.5 10H7zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg></div>`;
+    tube.appendChild(lock);
+    tube.setAttribute('aria-label', `${i + 1} · ${tr().tipLockTitle}`);
+  }
+}
+
+// Reveal the top unit of a tube in place (no re-render, so ball animations stay smooth)
+function revealDom(i) {
+  const tube = tubeEl(i); if (!tube) return;
+  const units = tube.querySelectorAll(liquidMode() ? '.layer' : '.ball');
+  units.forEach((el, p) => {
+    if (el.classList.contains('hid') && !isHid(i, p)) { el.classList.remove('hid'); el.classList.add('reveal'); setTimeout(() => el.classList.remove('reveal'), 450); }
+  });
+}
+
+let lockWasOpen = true;
+function refreshLock() {
+  const L = lockOf(); if (!L) return;
+  const open = lockOpen();
+  const tube = tubeEl(L.t);
+  if (open && !lockWasOpen && tube) {
+    tube.classList.add('unlocking');
+    sfx.unlockSound(); buzz([20, 30, 20]);
+    toast(tr().unlockedToast);
+    setTimeout(() => { tube.classList.remove('unlocking', 'locked'); fillTube(tube, L.t); }, 560);
+  } else if (tube) fillTube(tube, L.t);
+  lockWasOpen = open;
+}
+
+function makeLayer(c, n, surface) {
+  const el = document.createElement('div');
+  el.className = 'layer' + (surface ? ' surface' : '');
+  el.style.setProperty('--c', `var(--c${c})`);
+  el.style.setProperty('--i', n);
+  return el;
+}
+
+function makeBall(c, n) {
+  const el = document.createElement('div');
+  el.className = 'ball';
+  el.dataset.c = c;
+  el.style.setProperty('--c', `var(--c${c})`);
+  el.style.setProperty('--i', n);
+  return el;
+}
+
+const tubeEl = i => board.querySelector(`.tube[data-i="${i}"]`);
+const ballSize = () => parseFloat(getComputedStyle(board).getPropertyValue('--b')) || 40;
+
+function setSelected(i) {
+  board.querySelectorAll('.tube.sel').forEach(t => t.classList.remove('sel'));
+  board.querySelectorAll('.ball.up').forEach(b => b.classList.remove('up'));
+  S.sel = i;
+  if (i === null) return;
+  const t = S.tubes[i], el = tubeEl(i), b = ballSize();
+  el.classList.add('sel');
+  if (liquidMode()) return;
+  const run = topRun(t), topIdx = t.length - 1;
+  const up = (CFG.cap - topIdx - 1) * (b + 2) + b * 0.75 + 4;
+  [...el.querySelectorAll('.ball')].slice(-run).forEach(ball => { ball.style.setProperty('--up', up + 'px'); ball.classList.add('up'); });
+}
+
+// Fictional rival characters hold each level's record (the solver's shortest solution).
+// They are game characters, not real players; real leaderboards (Game Center) can replace them later.
+const RIVAL_COLORS = ['var(--c1)', 'var(--c5)', 'var(--c3)', 'var(--c7)', 'var(--c9)', 'var(--c6)'];
+// The rival's time: a brisk 3 s per move plus 5 s to look at the board.
+const rivalSecs = min => min * 3 + 5;
+// The clock stops while a dialog or an ad is open (pauses can nest).
+let pauseDepth = 0, pausedAt = 0;
+function pauseClock() { if (pauseDepth++ === 0) pausedAt = Date.now(); }
+function resumeClock() { if (pauseDepth > 0 && --pauseDepth === 0 && S && !S.won) S.t0 += Date.now() - pausedAt; }
+const nowT = () => pauseDepth > 0 ? pausedAt : Date.now();
+const elapsed = () => S ? Math.max(0, Math.round(((S.won ? S.tEnd : nowT()) - S.t0) / 1000)) : 0;
+const limitOf = li => {
+  if (li + 1 < CFG.timedFrom) return 0;
+  const L = LEVELS[li];
+  return Math.round(rivalSecs(L.minMoves) * (L.hard ? CFG.timeFactorHard : CFG.timeFactor)) + 20;
+};
+const remaining = () => S ? limitOf(S.li) + (S.bonus || 0) - elapsed() : 0;
+setInterval(() => {
+  if (!S || S.won || document.hidden) return;
+  updateHud();
+  if (!limitOf(S.li) || S.failed || S.busy || pauseDepth > 0) return;
+  const r = remaining();
+  if (r <= 10 && r > 0) sfx.tick(r);
+  if (r <= 0) timeUp();
+}, 1000);
+function rivalOf(li) { const k = (li * 5 + 2) % 6; return { name: tr().rivals[k], color: RIVAL_COLORS[k] }; }
+
+function updateHud() {
+  const t = tr();
+  $('#levelName').textContent = t.level(S.li + 1);
+  const L = LEVELS[S.li], rv = rivalOf(S.li);
+  const lim = limitOf(S.li);
+  const sub = $('#levelSub');
+  if (lim) {
+    const r = Math.max(0, remaining()), c = t.clock(r);
+    sub.textContent = L.hard ? t.timedHard(S.moves, c) : t.timedMoves(S.moves, c);
+    sub.classList.toggle('low', r <= 15 && !S.won);
+  } else {
+    const clock = t.clock(elapsed());
+    sub.textContent = L.hard ? t.hardLevel(S.moves, clock) : t.moves(S.moves, clock);
+    sub.classList.remove('low');
+  }
+  $('#levelSub').classList.toggle('hard', !!L.hard);
+  $('#rivalAva').textContent = rv.name[0];
+  $('#rivalAva').style.setProperty('--rc', rv.color);
+  $('#rivalText').textContent = t.rivalChip(rv.name, L.minMoves, t.clock(rivalSecs(L.minMoves)));
+  $('#coins').textContent = save.coins;
+  const ub = $('#undoBadge');
+  if (S.undos > 0) { ub.className = 'badge'; ub.textContent = S.undos; }
+  else { ub.className = 'badge ad'; ub.textContent = t.adTag; }
+  const tb = $('#tubeBadge');
+  if (S.extra) { tb.className = 'badge ad'; tb.textContent = '✓'; }
+  else { tb.className = 'badge'; tb.innerHTML = `<span class="coin"></span>${CFG.addTubeCost}`; }
+  const bannerOn = !save.noAds && (S.li + 1) >= CFG.bannerFrom;
+  $('#banner').hidden = !bannerOn;
+  if (NATIVE_ADS()) { if (bannerOn) P.ads.showBanner(); else P.ads.hideBanner(); }
+}
+
+function hint(text, warn) {
+  const h = $('#hint');
+  h.textContent = text || '';
+  h.classList.toggle('warn', !!warn);
+  $('#undoBtn').classList.toggle('pulse', !!warn);
+  $('#tubeBtn').classList.toggle('pulse', !!warn && !S.extra);
+}
+
+/* ---------- Moves ---------- */
+function onTube(i) {
+  sfx.unlock();
+  if (!S || S.busy || S.won || S.failed) return;
+  const t = S.tubes[i];
+  if (isLocked(i)) { shake(i); toast(tr().lockedToast); return; }
+  if (S.sel === null) {
+    if (!t.length) { shake(i); return; }
+    setSelected(i);
+    sfx.pick(t[t.length - 1]);
+    return;
+  }
+  if (S.sel === i) { setSelected(null); return; }
+  if (canPour(S.sel, i)) { pour(S.sel, i); return; }
+  // tap on another non-empty tube switches selection
+  if (t.length) { setSelected(i); sfx.pick(t[t.length - 1]); return; }
+  shake(i);
+}
+
+function shake(i) {
+  const el = tubeEl(i);
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  sfx.nope(); buzz(20);
+}
+
+async function pour(i, j) {
+  const a = S.tubes[i], b = S.tubes[j];
+  const color = a[a.length - 1];
+  const n = Math.min(topRun(a), CFG.cap - b.length);
+  const wasDone = isDoneTube(b), srcWasDone = isDoneTube(a);
+  S.history.push({ t: S.tubes.map(t => t.slice()), h: S.hidden.map(h => h.slice()) });
+  // hidden flags travel with the balls; moved balls are on top, so they are visible; the new top of the source is revealed
+  for (let k = 0; k < n; k++) { S.hidden[i].pop(); S.hidden[j].push(0); }
+  if (S.hidden[i].length) S.hidden[i][S.hidden[i].length - 1] = 0;
+  S.busy = true;
+  S.moves++;
+  if (S.li <= 1) hint('');
+  const ta = tubeEl(i), tb = tubeEl(j);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (liquidMode()) await pourLiquid(i, j, n, color, reduce);
+  else await pourBalls(i, j, n, color, reduce);
+  buzz(8);
+  revealDom(i);
+  // both tubes re-check their state: a finished tube poured away must stop glowing
+  ta.classList.toggle('done', isDoneTube(a));
+  tb.classList.toggle('done', isDoneTube(b));
+  if (isDoneTube(b) && !wasDone && !srcWasDone) { sfx.done(color); burst(tb, color); }
+  refreshLock();
+  updateHud();
+  S.busy = false;
+  if (isWon(S.tubes)) { S.won = true; S.tEnd = Date.now(); setTimeout(win, 350); return; }
+  if (!usefulMoveExists()) hint(tr().stuck, true);
+  else if ($('#hint').classList.contains('warn')) hint('');
+}
+
+async function pourBalls(i, j, n, color, reduce) {
+  const a = S.tubes[i], b = S.tubes[j];
+  const ta = tubeEl(i), tb = tubeEl(j);
+  const allTop = [...ta.querySelectorAll('.ball')];
+  const moving = allTop.slice(-n).reverse();             // top ball first
+  allTop.slice(0, allTop.length - n).forEach(el => el.classList.remove('up'));
+  const base = b.length;
+  for (let k = 0; k < n; k++) b.push(a.pop());
+  ta.classList.remove('sel'); S.sel = null;
+  const bs = ballSize();
+  const dur = reduce ? 1 : 400, step = reduce ? 0 : 0.075;
+  // measure everything first, then write: one layout pass instead of one per ball
+  const befores = moving.map(el => el.getBoundingClientRect());
+  moving.forEach((el, k) => { el.classList.add('moving'); el.classList.remove('up'); el.style.setProperty('--i', base + k); tb.appendChild(el); });
+  const tbTop = tb.getBoundingClientRect().top;
+  const afters = moving.map(el => el.getBoundingClientRect());
+  sfx.drops(color, n, dur / 1000 * 0.92, step);
+  const done = moving.map((el, k) => {
+    const before = befores[k], after = afters[k];
+    const dx = before.left - after.left, dy = before.top - after.top;
+    const peak = Math.min(before.top, tbTop - bs * 1.1) - after.top;
+    return el.animate([
+      { transform: `translate(${dx}px, ${dy}px)` },
+      { transform: `translate(${dx * 0.5}px, ${peak}px)`, offset: 0.42 },
+      { transform: `translate(${dx * 0.04}px, ${peak * 0.25}px)`, offset: 0.78 },
+      { transform: 'translate(0, 0)' }
+    ], { duration: dur, delay: step * 1000 * k, easing: 'cubic-bezier(.35,.75,.35,1)', fill: 'backwards' }).finished
+      .then(() => el.classList.remove('moving'));
+  });
+  await Promise.all(done);
+}
+
+async function pourLiquid(i, j, n, color, reduce) {
+  const a = S.tubes[i], b = S.tubes[j];
+  const ta = tubeEl(i), tb = tubeEl(j);
+  ta.classList.remove('sel'); S.sel = null;
+  const outgoing = [...ta.querySelectorAll('.layer')].slice(-n);
+  const base = b.length;
+  for (let k = 0; k < n; k++) b.push(a.pop());
+  const dur = reduce ? 1 : 260 + 140 * n;
+  const ra = ta.getBoundingClientRect(), rb = tb.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  // tip towards the target, unless the tilted flask would stick out of the screen — then tip the other way
+  let dir = rb.left > ra.left ? 1 : -1;
+  const reach = ra.height + 8, cx = rb.left + rb.width / 2;
+  if (dir === -1 && cx + reach > sr.right) dir = 1;
+  else if (dir === 1 && cx - reach < sr.left) dir = -1;
+  const bs = ballSize();
+  // the source flask flies over the target and tips almost on its side, mouth over the target's mouth
+  const mx = rb.left + rb.width / 2 - dir * rb.width * 0.22, my = rb.top - bs * 0.55 - 8;
+  const tx = mx - (ra.left + ra.width / 2), ty = my - ra.top;
+  ta.style.transformOrigin = '50% 0';
+  ta.style.zIndex = '6';
+  const tilt = ta.animate([
+    { transform: 'translate(0, -14px) rotate(0deg)' },
+    { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.2 },
+    { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.84 },
+    { transform: 'translate(0, 0) rotate(0deg)' }
+  ], { duration: dur + 420, easing: 'ease-in-out' });
+  // a thin stream from the mouth down to the liquid surface in the target
+  const x1 = mx - sr.left, y1 = my - sr.top + 2;
+  const y2 = rb.bottom - sr.top - 4 - base * (bs + 2);
+  const stream = document.createElement('div');
+  stream.className = 'stream';
+  stream.style.setProperty('--c', `var(--c${color})`);
+  stream.style.left = (x1 - 3) + 'px'; stream.style.top = y1 + 'px'; stream.style.height = Math.max(8, y2 - y1) + 'px';
+  stage.appendChild(stream);
+  const pourStart = 0.24, pourEnd = 0.8;
+  stream.animate([
+    { opacity: 0, clipPath: 'inset(0 0 100% 0)' },
+    { opacity: 1, clipPath: 'inset(0 0 100% 0)', offset: pourStart },
+    { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourStart + 0.08 },
+    { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourEnd },
+    { opacity: 0, clipPath: 'inset(100% 0 0 0)' }
+  ], { duration: dur + 420, easing: 'linear' }).finished.then(() => stream.remove());
+  // source layers drain, target layers fill
+  const total = dur + 420;
+  outgoing.forEach(el => el.classList.remove('surface'));
+  const span = pourEnd - pourStart;
+  outgoing.forEach((el, idx) => {
+    const q = n - 1 - idx;                       // 0 = the top layer drains first
+    const from = pourStart + 0.04 + span * q / n, to = pourStart + 0.04 + span * (q + 1) / n;
+    el.animate([
+      { transform: 'scaleY(1)' }, { transform: 'scaleY(1)', offset: Math.min(from, 0.99) },
+      { transform: 'scaleY(0)', offset: Math.min(to, 0.995) }, { transform: 'scaleY(0)' }
+    ], { duration: total, fill: 'forwards' });
+  });
+  outgoing.forEach(el => el.style.transformOrigin = 'bottom');
+  tb.querySelectorAll('.layer.surface').forEach(el => el.classList.remove('surface'));
+  const incoming = [];
+  for (let k = 0; k < n; k++) {
+    const el = makeLayer(color, base + k, k === n - 1);
+    el.classList.add('grow');
+    tb.appendChild(el);
+    incoming.push(el);
+    el.animate([
+      { transform: 'scaleY(0)' }, { transform: 'scaleY(0)', offset: pourStart + 0.06 + (pourEnd - pourStart) * k / n },
+      { transform: 'scaleY(1)', offset: pourStart + 0.06 + (pourEnd - pourStart) * (k + 1) / n }, { transform: 'scaleY(1)' }
+    ], { duration: total, fill: 'backwards' });
+  }
+  sfx.glug(color, n, total * pourStart / 1000, total * (pourEnd - pourStart) / 1000);
+  await tilt.finished;
+  ta.style.transformOrigin = ''; ta.style.zIndex = '';
+  fillTube(ta, i); fillTube(tb, j);
+}
+
+function burst(tube, color) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = tube.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  for (let k = 0; k < 10; k++) {
+    const s = document.createElement('span');
+    s.className = 'spark';
+    s.style.setProperty('--c', `var(--c${color})`);
+    s.style.left = (r.left - sr.left + r.width / 2 - 3) + 'px';
+    s.style.top = (r.top - sr.top - 4) + 'px';
+    stage.appendChild(s);
+    const ang = (-Math.PI / 2) + (k - 4.5) * 0.28, dist = 34 + (k % 3) * 14;
+    s.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0.3)`, opacity: 0 }
+    ], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }).finished.then(() => s.remove());
+  }
+}
+
+/* ---------- Boosters ---------- */
+async function onUndo() {
+  sfx.unlock();
+  if (!S || S.busy || S.won || S.failed) return;
+  if (!S.history.length) { toast(tr().nothingToUndo); return; }
+  if (S.undos <= 0) {
+    const ok = await offer(tr().undoEmptyTitle, tr().undoEmptyText, null);
+    if (ok !== 'ad') return;
+    S.undos += CFG.undoAdRefill;
+    toast(tr().undosAdded(CFG.undoAdRefill));
+    updateHud();
+    return;
+  }
+  const snap = S.history.pop();
+  S.hidden = snap.h.map((col, ti) => col.map((v, p) => (v && S.hidden[ti] && S.hidden[ti][p] === 1) ? 1 : 0));
+  S.tubes = snap.t;
+  S.undos--; S.undosUsed++;
+  render(); updateHud(); lockWasOpen = lockOpen();
+  hint(usefulMoveExists() ? '' : tr().stuck, !usefulMoveExists());
+}
+
+async function onAddTube() {
+  sfx.unlock();
+  if (!S || S.busy || S.won || S.failed) return;
+  if (S.extra) { toast(tr().tubeUsed); return; }
+  const choice = await offer(tr().tubeTitle, tr().tubeText, CFG.addTubeCost);
+  if (!choice) return;
+  if (choice === 'coins') { save.coins -= CFG.addTubeCost; persist(); sfx.coin(); track('coins_spent', { on: 'tube', amount: CFG.addTubeCost, level: S.li + 1 }); }
+  track('revive', { level: S.li + 1, how: choice, kind: 'tube' });
+  S.extra = true;
+  S.tubes.push([]);
+  S.history.forEach(h => { h.t.push([]); h.h.push([]); });
+  S.hidden.push([]);
+  setSelected(null);
+  render(); updateHud(); hint('');
+  toast(tr().tubeAdded);
+}
+
+function onRestart() {
+  if (S && !S.won) track('level_restart', { level: S.li + 1, moves: S.moves, seconds: elapsed() });
+  sfx.unlock();
+  if (!S || S.busy) return;
+  const r = S.restarts + 1;
+  startLevel(S.li);
+  S.restarts = r;
+}
+
+/* ---------- Overlays ---------- */
+function show(id) { $(id).hidden = false; }
+function hide(id) { $(id).hidden = true; }
+
+function offer(title, text, cost) {
+  return new Promise(resolve => {
+    const t = tr();
+    $('#offerTitle').textContent = title;
+    $('#offerText').textContent = text;
+    const coinBtn = $('#offerCoinBtn');
+    if (cost === null) coinBtn.hidden = true;
+    else {
+      coinBtn.hidden = false;
+      const enough = save.coins >= cost;
+      coinBtn.disabled = !enough;
+      coinBtn.innerHTML = enough ? `<span class="coin"></span>${t.payCoins(cost)}` : t.notEnough;
+    }
+    show('#offerOverlay'); pauseClock();
+    const done = v => { hide('#offerOverlay'); cleanup(); resumeClock(); resolve(v); };
+    const onAd = async () => { hide('#offerOverlay'); cleanup(); const got = await playAd('reward'); resumeClock(); resolve(got ? 'ad' : null); };
+    const onCoins = () => done('coins');
+    const onCancel = () => done(null);
+    const cleanup = () => {
+      $('#offerAdBtn').removeEventListener('click', onAd);
+      coinBtn.removeEventListener('click', onCoins);
+      $('#offerCancel').removeEventListener('click', onCancel);
+    };
+    $('#offerAdBtn').addEventListener('click', onAd);
+    coinBtn.addEventListener('click', onCoins);
+    $('#offerCancel').addEventListener('click', onCancel);
+  });
+}
+
+let preAdDone = null;
+function preAd(bonus) {
+  return new Promise(resolve => {
+    const t = tr();
+    $('#preAdTitle').textContent = t.preAdTitle;
+    $('#preAdCoins').textContent = '+' + bonus;
+    $('#preAdText').textContent = t.preAdText(bonus);
+    let left = CFG.preAdSeconds;
+    const go = $('#preAdGo');
+    go.textContent = `${t.preAdGo} · ${left}`;
+    show('#preAdOverlay');
+    const timer = setInterval(() => { left--; if (left <= 0) preAdDone(); else go.textContent = `${t.preAdGo} · ${left}`; }, 1000);
+    preAdDone = () => { clearInterval(timer); preAdDone = null; hide('#preAdOverlay'); resolve(); };
+  });
+}
+
+function playAd(kind) {
+  track('ad_offer_accepted', { kind, level: S ? S.li + 1 : 0 });
+  if (NATIVE_ADS()) return playNativeAd(kind);
+  return playDemoAd(kind);
+}
+async function playNativeAd(kind) {
+  if (!P.ads.isReady(kind)) { toast(tr().adNotReady); return false; }
+  pauseClock();
+  const ok = kind === 'reward' ? await P.ads.showRewarded() : await P.ads.showInterstitial();
+  resumeClock();
+  sfx.unlock();
+  if (ok) track('ad_watched', { kind, level: S ? S.li + 1 : 0 });
+  if (ok && kind === 'reward') sfx.coin();
+  return kind === 'reward' ? ok : true;
+}
+function playDemoAd(kind) {
+  return new Promise(resolve => {
+    const t = tr();
+    const secs = kind === 'reward' ? CFG.rewardSeconds : CFG.interSeconds;
+    $('#adKind').textContent = kind === 'reward' ? t.adReward : t.adInter;
+    $('#adNote').textContent = t.adNote;
+    const count = $('#adCount'), close = $('#adClose');
+    close.hidden = true;
+    let left = secs;
+    count.textContent = left;
+    show('#adOverlay');
+    const timer = setInterval(() => {
+      left--;
+      if (left > 0) { count.textContent = left; return; }
+      clearInterval(timer);
+      count.textContent = kind === 'reward' ? '✓' : '';
+      if (kind === 'reward') { $('#adNote').textContent = t.rewardGot; sfx.coin(); }
+      close.hidden = false;
+      close.focus();
+    }, 1000);
+    pauseClock();
+    const onClose = () => { close.removeEventListener('click', onClose); hide('#adOverlay'); resumeClock(); resolve(true); };
+    close.addEventListener('click', onClose);
+  });
+}
+
+function timeUp() {
+  const t = tr();
+  track('level_fail', { level: S.li + 1, reason: 'time', moves: S.moves, variant: save.variant });
+  S.failed = true; S.fails = (S.fails || 0) + 1;
+  setSelected(null);
+  sfx.alarm(); buzz([60, 40, 60]);
+  const left = S.tubes.filter(x => x.length && !isDoneTube(x)).length;
+  const colorsLeft = new Set(S.tubes.flat()).size - S.tubes.filter(isDoneTube).length;
+  $('#failTitle').textContent = t.timeUpTitle;
+  $('#failText').textContent = t.timeUpText(Math.max(1, colorsLeft || left));
+  $('#reviveAdLabel').textContent = t.reviveAd(CFG.reviveSecs);
+  const cb = $('#reviveCoinBtn'), enough = save.coins >= CFG.adX;
+  cb.disabled = !enough;
+  cb.innerHTML = enough ? `<span class="coin"></span>${t.reviveCoins(CFG.reviveSecs, CFG.adX)}` : t.notEnough;
+  show('#failOverlay');
+}
+function revive(how) {
+  track('revive', { level: S.li + 1, how: how || 'ad', kind: 'time' });
+  S.bonus = (S.bonus || 0) + CFG.reviveSecs + Math.max(0, -remaining());
+  S.failed = false;
+  hide('#failOverlay');
+  updateHud();
+}
+async function onReviveAd() { hide('#failOverlay'); const got = await playAd('reward'); if (got) revive('ad'); else show('#failOverlay'); }
+function onReviveCoins() { if (save.coins < CFG.adX) return; save.coins -= CFG.adX; persist(); sfx.coin(); track('coins_spent', { on: 'time', amount: CFG.adX, level: S.li + 1 }); revive('coins'); }
+function onFailRestart() { hide('#failOverlay'); const r = S.restarts + 1, f = S.fails; startLevel(S.li); S.restarts = r; S.fails = f; }
+
+let pendingReward = 0;
+function win() {
+  const t = tr(), L = LEVELS[S.li];
+  const m = S.moves, min = L.minMoves;
+  const secs = elapsed(), rSecs = rivalSecs(min);
+  // 3 stars only for the record's moves AND beating the rival's time; the bare minimum is "Not bad" with 2 stars
+  const stars = (m <= min && secs <= rSecs) ? 3 : m <= min + 2 ? 2 : 1;
+  save.best = save.best || {};
+  const prevBest = save.best[S.li] || 0;
+  const firstOrBetter = stars > prevBest;
+  pendingReward = firstOrBetter ? (10 + 5 * stars) * (L.hard ? 2 : 1) : 5;
+  if (firstOrBetter) save.best[S.li] = stars;
+  const rv = rivalOf(S.li);
+  $('#youAva').textContent = t.youInitial;
+  $('#youMoves').textContent = t.movesN(m);
+  $('#rivalAvaBig').textContent = rv.name[0];
+  $('#rivalAvaBig').style.setProperty('--rc', rv.color);
+  $('#rivalNameBig').textContent = rv.name;
+  $('#rivalMoves').textContent = t.movesN(min);
+  $('#youTime').textContent = t.clock(secs);
+  $('#rivalTime').textContent = t.clock(rSecs);
+  $('#youTime').classList.toggle('fast', secs <= rSecs);
+  $('#vsYou').classList.toggle('win', stars === 3);
+  $('#vsRival').classList.toggle('win', stars < 3);
+  const rb = $('#replayLevelBtn');
+  rb.textContent = stars < 3 ? t.beatIt(rv.name) : t.replayLevel;
+  track('level_complete', { level: S.li + 1, moves: m, min_moves: min, seconds: secs, stars, undos: S.undosUsed, extra_tube: S.extra, restarts: S.restarts, fails: S.fails || 0, variant: save.variant, first: firstOrBetter ? 1 : 0 });
+  save.stats[S.li] = { moves: m, min, secs, undos: S.undosUsed, extra: S.extra ? 1 : 0, stars, restarts: S.restarts, fails: S.fails || 0, timed: limitOf(S.li) ? 1 : 0, v: save.variant };
+  save.level = Math.max(save.level, S.li + 1);
+  persist();
+  sfx.win(); buzz('success');
+  const starSvg = on => `<svg class="star${on ? ' on' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.3l-5.8 3.1 1.2-6.5L2.6 9.4l6.5-.8z"/></svg>`;
+  $('#stars').innerHTML = [1, 2, 3].map(k => starSvg(k <= stars)).join('');
+  $('#stars').querySelectorAll('.star.on').forEach((s, k) => s.style.animationDelay = (k * 140) + 'ms');
+  $('#winTitle').textContent = (m > min && m <= min + 2) ? t.almost : t.winTitles[stars - 1];
+  $('#winText').textContent = (stars === 3 ? t.tied() : m <= min ? t.slower(secs - rSecs) : t.behind(rv.name, m - min)) + (firstOrBetter ? '' : ' ' + t.replayReward);
+  $('#winCoins').textContent = '+' + pendingReward;
+  $('#doubleLabel').textContent = t.winAd(CFG.winAdBonus);
+  $('#doubleBtn').disabled = false;
+  $('#doubleBtn').hidden = false;
+  show('#winOverlay');
+  $('#nextBtn').focus();
+}
+
+async function onDouble() {
+  $('#doubleBtn').disabled = true;
+  hide('#winOverlay');
+  const got = await playAd('reward');
+  if (got) { pendingReward += CFG.winAdBonus; $('#winCoins').textContent = '+' + pendingReward; $('#doubleBtn').hidden = true; }
+  show('#winOverlay');
+}
+
+async function onNext() { await afterWin(false); }
+async function onReplayLevel() { await afterWin(true); }
+
+async function afterWin(replay) {
+  hide('#winOverlay');
+  save.coins += pendingReward; pendingReward = 0;
+  sfx.coin(); persist(); $('#coins').textContent = save.coins;
+  const finished = S.li + 1;
+  if (!save.noAds && finished >= CFG.interFrom) {
+    save.sinceAd++;
+    const every = finished >= CFG.interAlwaysFrom ? 1 : CFG.interEvery;
+    if (save.sinceAd >= every && (!NATIVE_ADS() || P.ads.isReady('inter'))) {
+      save.sinceAd = 0; persist();
+      await preAd(CFG.interBonus);
+      await playAd('inter');
+      save.coins += CFG.interBonus; persist();
+      $('#coins').textContent = save.coins; sfx.coin(); toast(tr().bonusGot(CFG.interBonus));
+    }
+    persist();
+  }
+  if (NATIVE && finished === CFG.askTrackingAfter) await P.ads.askTracking();
+  if (replay) { startLevel(S.li); return; }
+  if (finished >= LEVELS.length) { showEnd(); return; }
+  startLevel(finished);
+}
+
+function showEnd() {
+  const t = tr();
+  $('#endTitle').textContent = t.endTitle;
+  $('#endText').textContent = t.endText;
+  show('#endOverlay');
+}
+
+let toastTimer = null;
+function toast(text) {
+  document.querySelectorAll('.toast').forEach(x => x.remove());
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = text; el.setAttribute('role', 'status');
+  document.body.appendChild(el);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 1800);
+}
+
+/* ---------- Settings ---------- */
+let resetArmed = false;
+function fmtTime(s) { const m = Math.floor(s / 60); return m ? `${m}:${String(s % 60).padStart(2, '0')}` : `${s}${save.lang === 'uk' ? ' с' : 's'}`; }
+function renderSettings() {
+  $('#audioState').textContent = (save.lang === 'uk' ? 'Стан звуку: ' : 'Audio state: ') + sfx.state();
+  const t = tr();
+  applyLang();
+  $('#langUk').setAttribute('aria-pressed', save.lang === 'uk');
+  $('#langEn').setAttribute('aria-pressed', save.lang === 'en');
+  $('#soundOn').setAttribute('aria-pressed', !!save.sound);
+  $('#soundOff').setAttribute('aria-pressed', !save.sound);
+  $('#lookBalls').setAttribute('aria-pressed', save.variant === 'balls');
+  $('#lookLiquid').setAttribute('aria-pressed', save.variant === 'liquid');
+  const priceOf = (id, fallback) => (NATIVE && P.iap.price(id)) || fallback;
+  const buyLabel = p => NATIVE ? t.buy(p) : t.buyDemo(p);
+  $('#noAdsBtn').textContent = save.noAds ? t.noAdsOn : buyLabel(priceOf('noads', CFG.noAdsPrice));
+  $('#noAdsBtn').disabled = save.noAds;
+  $('#coins500Btn').textContent = buyLabel(priceOf('coins_500', CFG.coins500Price));
+  $('#coins1500Btn').textContent = buyLabel(priceOf('coins_1500', CFG.coins1500Price));
+  $('#privacyBtn').hidden = !NATIVE_ADS();
+  $('#privacyLink').href = PRIVACY_URL || '#';
+  $('#privacyLink').parentElement.hidden = !PRIVACY_URL;
+  $('#testerTools').hidden = NATIVE && !(P.env && P.env.debug);
+  const sel = $('#jumpSel');
+  sel.innerHTML = LEVELS.map((L, i) => `<option value="${i}"${i === S.li ? ' selected' : ''}>${i + 1} · ${new Set(L.tubes.flat()).size} ${save.lang === 'uk' ? 'кол.' : 'col.'}${L.lock ? ' · 🔒' : ''}${L.hidden ? ' · ?' : ''}</option>`).join('');
+  const rows = Object.keys(save.stats).map(Number).sort((a, b) => a - b);
+  const table = $('#statsTable');
+  if (!rows.length) { table.innerHTML = `<tr><td style="text-align:left;white-space:normal;color:var(--ink-2)">${t.noStats}</td></tr>`; }
+  else {
+    table.innerHTML = `<thead><tr>${t.th.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map(i => { const s = save.stats[i]; return `<tr><td>${i + 1}</td><td>${s.moves}</td><td>${s.min}</td><td>${fmtTime(s.secs)}</td><td>${s.undos}</td><td>${s.extra ? '✓' : '·'}</td><td>${'★'.repeat(s.stars)}</td><td>${s.v === 'liquid' ? t.vLiquid : t.vBalls}</td></tr>`; }).join('') + '</tbody>';
+  }
+  resetArmed = false;
+  $('#resetBtn').textContent = t.reset;
+}
+
+function applyLang() {
+  const t = tr();
+  document.documentElement.lang = save.lang === 'uk' ? 'uk' : 'en';
+  document.querySelectorAll('[data-t]').forEach(el => { const v = t[el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
+  $('#settingsBtn').setAttribute('aria-label', t.settings);
+  if (S) updateHud();
+}
+
+/* ---------- Wiring ---------- */
+$('#undoBtn').addEventListener('click', onUndo);
+$('#tubeBtn').addEventListener('click', onAddTube);
+$('#restartBtn').addEventListener('click', onRestart);
+$('#doubleBtn').addEventListener('click', onDouble);
+$('#nextBtn').addEventListener('click', onNext);
+$('#reviveAdBtn').addEventListener('click', onReviveAd);
+$('#reviveCoinBtn').addEventListener('click', onReviveCoins);
+$('#failRestartBtn').addEventListener('click', onFailRestart);
+$('#replayLevelBtn').addEventListener('click', onReplayLevel);
+$('#settingsBtn').addEventListener('click', () => { renderSettings(); show('#settingsOverlay'); pauseClock(); });
+$('#closeSettings').addEventListener('click', () => { hide('#settingsOverlay'); resumeClock(); });
+$('#langUk').addEventListener('click', () => { save.lang = 'uk'; persist(); renderSettings(); });
+$('#langEn').addEventListener('click', () => { save.lang = 'en'; persist(); renderSettings(); });
+$('#soundOn').addEventListener('click', () => { save.sound = true; persist(); renderSettings(); sfx.unlock(); sfx.pick(3); });
+$('#soundOff').addEventListener('click', () => { save.sound = false; persist(); renderSettings(); });
+async function buy(id) {
+  sfx.unlock();
+  if (NATIVE) { pauseClock(); const ok = await P.iap.buy(id); resumeClock(); if (!ok) { toast(tr().purchaseFailed); return false; } }
+  else track('purchase', { item_id: id, demo: 1 });
+  sfx.coin(); buzz('success');
+  return true;
+}
+function grantNoAds() { save.noAds = true; persist(); if (NATIVE_ADS()) P.ads.hideBanner(); renderSettings(); updateHud(); }
+$('#noAdsBtn').addEventListener('click', async () => { if (await buy('noads')) { grantNoAds(); toast(tr().purchased); } });
+$('#coins500Btn').addEventListener('click', async () => { if (await buy('coins_500')) { save.coins += 500; persist(); updateHud(); toast(tr().coinsAdded(500)); } });
+$('#coins1500Btn').addEventListener('click', async () => { if (await buy('coins_1500')) { save.coins += 1500; persist(); updateHud(); toast(tr().coinsAdded(1500)); } });
+$('#restoreBtn').addEventListener('click', async () => {
+  if (!NATIVE) { toast(tr().nothingRestored); return; }
+  const owned = await P.iap.restore();
+  if (owned.includes('noads')) { grantNoAds(); toast(tr().restored); } else toast(tr().nothingRestored);
+});
+$('#privacyBtn').addEventListener('click', () => { if (NATIVE_ADS()) P.ads.privacyOptions(); });
+$('#lookBalls').addEventListener('click', () => { save.variant = 'balls'; persist(); renderSettings(); if (S && !S.busy) { setSelected(null); render(); } });
+$('#lookLiquid').addEventListener('click', () => { save.variant = 'liquid'; persist(); renderSettings(); if (S && !S.busy) { setSelected(null); render(); } });
+$('#preAdGo').addEventListener('click', () => preAdDone && preAdDone());
+$('#jumpSel').addEventListener('change', e => { hide('#settingsOverlay'); startLevel(Number(e.target.value)); });
+$('#resetBtn').addEventListener('click', () => {
+  if (!resetArmed) { resetArmed = true; $('#resetBtn').textContent = tr().resetConfirm; return; }
+  const lang = save.lang;
+  save = Object.assign({}, DEFAULT_SAVE, { stats: {}, lang }); persist();
+  hide('#settingsOverlay'); startLevel(0); toast('✓');
+});
+$('#replayBtn').addEventListener('click', () => { hide('#endOverlay'); startLevel(0); });
+$('#endStatsBtn').addEventListener('click', () => { hide('#endOverlay'); renderSettings(); show('#settingsOverlay'); });
+window.addEventListener('resize', () => { if (S) { const sel = S.sel; sizeBoard(); if (sel !== null) setSelected(sel); } });
+document.addEventListener('pointerdown', () => sfx.unlock(), { once: true });
+let bgPaused = false;
+function onBackground() { if (!bgPaused) { bgPaused = true; pauseClock(); } }
+function onForeground() { if (bgPaused) { bgPaused = false; resumeClock(); } sfx.unlock(); }
+document.addEventListener('visibilitychange', () => document.hidden ? onBackground() : onForeground());
+window.addEventListener('platform:pause', onBackground);
+window.addEventListener('platform:resume', onForeground);
+
+function start(data) {
+  if (P && P.remote) for (const [k, v] of Object.entries(P.remote)) if (k in CFG && typeof v === typeof CFG[k]) CFG[k] = v;
+  deriveCfg();
+  if (save.variant !== 'balls' && save.variant !== 'liquid') { save.variant = Math.random() < CFG.variantSplit ? 'liquid' : 'balls'; store.set('save', save); }
+  if (P) P.setUserProperty('look_variant', save.variant);
+  $('#app').classList.toggle('native', NATIVE);
+  applyLang();
+  const snap = data && data.S;
+  if (snap && LEVELS[snap.li]) startLevel(snap.li, snap);
+  else startLevel(Math.min(save.level, LEVELS.length - 1));
+}
+window.claude?.hot?.snapshot?.(() => ({ S: S && { li: S.li, tubes: S.tubes, history: S.history, undos: S.undos, undosUsed: S.undosUsed, extra: S.extra, moves: S.moves, t0: S.t0, restarts: S.restarts, bonus: S.bonus, fails: S.fails, hidden: S.hidden } }));
+if (P) P.init(Object.keys(CFG)).then(() => P.ready).then(() => start({}));
+else window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>

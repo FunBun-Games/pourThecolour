@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="18%" r="95%">
+      <stop offset="0" stop-color="#2d3166"/>
+      <stop offset="0.6" stop-color="#1b1e3b"/>
+      <stop offset="1" stop-color="#121429"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.10"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="33%" cy="28%" r="40%">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="0.3" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <g id="tube">
+      <path d="M0 0 H150 V430 a75 75 0 0 1 -150 0 Z" fill="url(#glass)" stroke="#e8ecff" stroke-opacity="0.55" stroke-width="10"/>
+      <rect x="-22" y="-14" width="194" height="18" rx="9" fill="#e8ecff" fill-opacity="0.55"/>
+    </g>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- left tube: pouring source tilted -->
+  <g transform="translate(150 300) rotate(-14 75 250)">
+    <use href="#tube"/>
+    <circle cx="75" cy="430" r="62" fill="#4c94ee"/><circle cx="75" cy="430" r="62" fill="url(#shine)"/>
+    <circle cx="75" cy="300" r="62" fill="#f5953e"/><circle cx="75" cy="300" r="62" fill="url(#shine)"/>
+  </g>
+  <!-- middle tube: complete, glowing -->
+  <g transform="translate(437 230)">
+    <rect x="-30" y="-30" width="210" height="580" rx="100" fill="#64d39a" fill-opacity="0.10"/>
+    <path d="M0 0 H150 V430 a75 75 0 0 1 -150 0 Z" fill="url(#glass)" stroke="#64d39a" stroke-width="10"/>
+    <rect x="-22" y="-14" width="194" height="18" rx="9" fill="#64d39a"/>
+    <circle cx="75" cy="430" r="62" fill="#ef5a5f"/><circle cx="75" cy="430" r="62" fill="url(#shine)"/>
+    <circle cx="75" cy="300" r="62" fill="#ef5a5f"/><circle cx="75" cy="300" r="62" fill="url(#shine)"/>
+    <circle cx="75" cy="170" r="62" fill="#ef5a5f"/><circle cx="75" cy="170" r="62" fill="url(#shine)"/>
+  </g>
+  <!-- right tube -->
+  <g transform="translate(724 300)">
+    <use href="#tube"/>
+    <circle cx="75" cy="430" r="62" fill="#f4d34a"/><circle cx="75" cy="430" r="62" fill="url(#shine)"/>
+    <circle cx="75" cy="300" r="62" fill="#9a68e3"/><circle cx="75" cy="300" r="62" fill="url(#shine)"/>
+    <circle cx="75" cy="170" r="62" fill="#f4d34a"/><circle cx="75" cy="170" r="62" fill="url(#shine)"/>
+  </g>
+  <!-- ball in flight -->
+  <circle cx="512" cy="118" r="62" fill="#ef5a5f"/><circle cx="512" cy="118" r="62" fill="url(#shine)"/>
+</svg>

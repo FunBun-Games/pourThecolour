@@ -1,0 +1,32 @@
+{
+  "name": "pour-and-sort",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pour & Sort — a hybrid-casual colour sort puzzle (HTML5 + Capacitor, iOS first)",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "levels": "node tools/levels/gen-levels.mjs",
+    "sync": "npm run build && npx cap sync ios",
+    "test": "node tools/check-levels.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.2.1",
+    "@capacitor-firebase/analytics": "^8.5.2",
+    "@capacitor-firebase/remote-config": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
+    "@capgo/native-purchases": "^8.9.2",
+    "firebase": "^12.19.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@fontsource/manrope": "^5.3.0",
+    "@fontsource/unbounded": "^5.3.0",
+    "esbuild": "^0.28.2"
+  }
+}

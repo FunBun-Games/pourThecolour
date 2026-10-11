@@ -1,0 +1,20 @@
+{
+  "appId": "com.poursort.game",
+  "appName": "Pour & Sort",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#191c35",
+    "scheme": "PourSort"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#191c35",
+      "showSpinner": false
+    },
+    "NativePurchases": {
+      "autoFinishTransactions": true
+    }
+  }
+}

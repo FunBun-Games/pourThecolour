@@ -1,0 +1,81 @@
+# Cloud iOS build on Codemagic (no Mac needed).
+# Every run: install → build the web game → sync to iOS → sign → build .ipa → upload to TestFlight.
+#
+# One-time setup in Codemagic (see README.md, "Хмарна збірка"):
+#   1. Teams → Integrations → Developer Portal → add an App Store Connect API key, name it exactly
+#      "PourSort ASC" (or change `integrations.app_store_connect` below).
+#   2. Environment variable groups:
+#        firebase → GOOGLE_SERVICE_INFO_PLIST_B64   (base64 of GoogleService-Info.plist)
+#        admob    → ADMOB_APP_ID, ADMOB_BANNER_ID, ADMOB_INTERSTITIAL_ID, ADMOB_REWARDED_ID
+#        app      → PRIVACY_URL
+#      Any group may stay empty at first: the build then uses Google's test ads and runs without Firebase.
+#   3. Set APP_STORE_APPLE_ID below to the app's Apple ID (App Store Connect → App Information).
+
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: PourSort ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.poursort.game
+      groups:
+        - firebase
+        - admob
+        - app
+      vars:
+        APP_STORE_APPLE_ID: 0000000000
+      node: 22
+      xcode: latest
+    # Runs only when started by hand or when a tag like v0.1.0 is pushed — keeps the free 500 minutes for real builds.
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Check levels
+        script: node tools/check-levels.mjs
+      - name: Build the web game (release)
+        script: node tools/build.mjs --release
+      - name: Copy the game into the iOS project
+        script: npx cap sync ios
+      - name: Firebase config
+        script: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST_B64" ]; then
+            echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > ios/App/App/GoogleService-Info.plist
+            echo "Firebase config installed"
+          else
+            echo "No Firebase config — analytics and remote config are off in this build"
+          fi
+      - name: AdMob app id
+        script: |
+          if [ -n "$ADMOB_APP_ID" ]; then
+            /usr/libexec/PlistBuddy -c "Set :GADApplicationIdentifier $ADMOB_APP_ID" ios/App/App/Info.plist
+            echo "AdMob app id set"
+          else
+            echo "No AdMob app id — Google test ads are used"
+          fi
+      - name: Code signing
+        script: xcode-project use-profiles
+      - name: Build number
+        script: |
+          cd ios/App
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: Build .ipa
+        script: |
+          cd ios/App
+          xcode-project build-ipa --project App.xcodeproj --scheme App
+    artifacts:
+      - ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
