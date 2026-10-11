@@ -41,7 +41,7 @@ FAIR TO PLAY
 • Remove ads with a single purchase.
 
 ## What's New (first version)
-First release. 50 levels, boss stages, locked tubes and hidden balls.
+First release. 500 levels, boss stages, locked tubes and hidden balls.
 
 ## Category
 Primary: Games → Puzzle. Secondary: Games → Casual.
