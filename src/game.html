@@ -323,6 +323,8 @@ tr + tr td { border-top: 1px solid var(--panel-edge); }
       <div class="seg" role="group"><button id="langUk" aria-pressed="false">UA</button><button id="langEn" aria-pressed="false">EN</button></div></div>
     <div class="setting"><span data-t="sound">Sound</span>
       <div class="seg" role="group"><button id="soundOn" aria-pressed="false" data-t="on">On</button><button id="soundOff" aria-pressed="false" data-t="off">Off</button></div></div>
+    <div class="setting"><span data-t="music">Music</span>
+      <div class="seg" role="group"><button id="musicOn" aria-pressed="false" data-t="on">On</button><button id="musicOff" aria-pressed="false" data-t="off">Off</button></div></div>
     <div class="setting"><span data-t="look">Look</span>
       <div class="seg" role="group"><button id="lookBalls" aria-pressed="false" data-t="balls">Balls</button><button id="lookLiquid" aria-pressed="false" data-t="liquidName">Liquid</button></div></div>
     <p class="section-label" data-t="shop">Shop</p>
@@ -382,7 +384,8 @@ const CFG = {
   coins500Price: '$1.99',
   coins1500Price: '$4.99',
   variantSplit: 0.5,      // share of new players who get the liquid look
-  askTrackingAfter: 2     // iOS tracking prompt after this level
+  askTrackingAfter: 2,    // iOS tracking prompt after this level
+  musicVol: 1             // background music loudness (0 = silent, 1 = default)
 };
 function deriveCfg() {
   CFG.addTubeCost = CFG.adX;
@@ -418,7 +421,7 @@ const T = {
     replayReward: 'За повтор без покращення — 5 монет.', hardToast: 'Складний рівень: подвійні монети',
     undo: 'Скасувати', addTube: 'Пробірка', restart: 'Заново', bannerDemo: 'Банер · демо',
     double: 'Бонус', winAd: n => `+${n} монет`, adTag: 'РЕКЛАМА',
-    look: 'Вигляд', balls: 'Кульки', liquidName: 'Рідина',
+    music: 'Музика', look: 'Вигляд', balls: 'Кульки', liquidName: 'Рідина',
     preAdTitle: 'Коротка реклама', preAdText: n => `Після неї ви отримаєте ${n} монет.`, preAdGo: 'Дивитися',
     bonusGot: n => `+${n} монет за перегляд`, next: 'Далі', watchAd: 'Подивитися рекламу', notNow: 'Не зараз',
     winTitles: ['Готово!', 'Непогано!', 'Ідеально!'],
@@ -464,7 +467,7 @@ const T = {
     replayReward: 'Replays without a better score give 5 coins.', hardToast: 'Hard level: double coins',
     undo: 'Undo', addTube: 'Tube', restart: 'Restart', bannerDemo: 'Banner ad · demo',
     double: 'Bonus', winAd: n => `+${n} coins`, adTag: 'AD',
-    look: 'Look', balls: 'Balls', liquidName: 'Liquid',
+    music: 'Music', look: 'Look', balls: 'Balls', liquidName: 'Liquid',
     preAdTitle: 'Short ad', preAdText: n => `You get ${n} coins after it.`, preAdGo: 'Watch',
     bonusGot: n => `+${n} coins for watching`, next: 'Next', watchAd: 'Watch an ad', notNow: 'Not now',
     winTitles: ['Done!', 'Not bad!', 'Perfect!'],
@@ -495,7 +498,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('pourSort:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { const j = JSON.stringify(v); try { localStorage.setItem('pourSort:' + k, j); } catch (e) {} if (P) P.persist(k, j); }
 };
-const DEFAULT_SAVE = { level: 0, coins: CFG.startCoins, noAds: false, sound: true, lang: null, sinceAd: 0, stats: {} };
+const DEFAULT_SAVE = { level: 0, coins: CFG.startCoins, noAds: false, sound: true, music: true, lang: null, sinceAd: 0, stats: {} };
 let save = Object.assign({}, DEFAULT_SAVE, store.get('save', {}));
 if (!save.lang) save.lang = 'uk'; // founder test build: Ukrainian by default, EN in settings
 // A/B: each new player gets one look at random; it can be switched in settings for testing
@@ -505,14 +508,15 @@ const tr = () => T[save.lang] || T.uk;
 
 /* ---------- Sound ---------- */
 const sfx = (() => {
-  let ctx = null, master = null;
+  let ctx = null, master = null, comp = null;
   const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
   // iOS can leave the context 'suspended' or 'interrupted' (calls, other apps, overlays), so every tap re-checks it
   const ac = () => {
     if (ctx && ctx.state === 'closed') { ctx = null; master = null; }
     if (!ctx) {
       try { ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); } catch (e) { return null; }
-      const comp = ctx.createDynamicsCompressor();
+      if (window.music) music.reset();
+      comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 6;
       master = ctx.createGain(); master.gain.value = 0.9;
       master.connect(comp).connect(ctx.destination);
@@ -527,6 +531,7 @@ const sfx = (() => {
     try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) {}
     if (rebuild && ctx) { try { ctx.close(); } catch (e) {} ctx = null; master = null; rebuild = false; }
     const c = ac(); if (!c) return;
+    if (window.music) music.kick();
     if (c.state !== 'running') {
       try { const b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch (e) {}
       setTimeout(() => { if (ctx && ctx.state !== 'running') rebuild = true; }, 250);
@@ -549,6 +554,7 @@ const sfx = (() => {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx) ac(); });
   return {
     unlock: ac,
+    graph: () => { const c = ac(); return c ? { ctx: c, out: comp } : null; },
     state: () => ctx ? ctx.state : 'not started',
     alarm: () => { tone(98, 0, 0.5, 0.12, 'triangle'); tone(92.5, 0.28, 0.6, 0.12, 'triangle'); tone(196, 0, 0.18, 0.05, 'square'); },
     pick: c => tone(f(c) * 2, 0, 0.07, 0.04, 'triangle'),
@@ -561,6 +567,153 @@ const sfx = (() => {
     unlockSound: () => { [0, 4, 7, 11].forEach((s, k) => tone(659 * Math.pow(2, s / 12), k * 0.06, 0.25, 0.06, 'triangle')); },
     tick: r => tone(r <= 3 ? 1046 : 880, 0, 0.06, r <= 3 ? 0.07 : 0.045, 'square'),
     coin: () => { tone(1318, 0, 0.12, 0.05); tone(1760, 0.07, 0.2, 0.05); }
+  };
+})();
+/* ---------- Music: "lab" ambient, synthesised live (no audio files, nothing to license) ----------
+   Layers: soft pad (Lydian maj7 chords, slow filter sweep), sine "lab computer" arpeggio through an echo,
+   round sine bass, faint ticking, and liquid bubbles now and then. Boss levels switch to a darker minor
+   progression with a busier arpeggio. Scheduled ahead on the audio clock, so taps never make it stutter. */
+const music = window.music = (() => {
+  const BPM = 84, SPB = 60 / BPM, BAR = SPB * 4;
+  const N = m => 440 * Math.pow(2, (m - 69) / 12);
+  // chords as MIDI notes; each lasts 2 bars
+  const CALM = [
+    { root: 41, tones: [53, 57, 60, 64, 67] },   // Fmaj9  (F lydian colour)
+    { root: 43, tones: [55, 59, 62, 66, 69] },   // G6/9 over G — the #11 of F
+    { root: 45, tones: [52, 57, 60, 64, 71] },   // Am(add9)
+    { root: 40, tones: [52, 55, 59, 62, 66] }    // Em9
+  ];
+  const BOSS = [
+    { root: 45, tones: [57, 60, 64, 67, 71] },   // Am9
+    { root: 41, tones: [53, 57, 60, 64, 65] },   // Fmaj7
+    { root: 38, tones: [50, 53, 57, 60, 64] },   // Dm9
+    { root: 40, tones: [52, 56, 59, 62, 64] }    // E7 — tension back to Am
+  ];
+  // arpeggio patterns: indexes into chord tones (+5 = octave up), null = rest
+  const ARPS = [
+    [0, 2, 4, 2, 5, null, 3, null, 1, 3, 4, null, 6, null, 2, null],
+    [4, null, 2, 5, null, 3, 1, null, 4, 6, null, 2, null, 5, 3, null],
+    [0, null, null, 4, null, null, 2, null, 5, null, null, 7, null, 3, null, null]
+  ];
+  let g = null, bus = null, echo = null, padF = null, on = false, timer = 0;
+  let nextBar = 0, bar = 0, mood = 'calm', wantMood = 'calm', ducked = false;
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  function build(gr = sfx.graph()) {
+    if (!gr) return false;
+    if (g && g.ctx === gr.ctx) return true;
+    const c = gr.ctx;
+    bus = c.createGain(); bus.gain.value = 0.0001;
+    bus.connect(gr.out);
+    // echo: two taps feeding back softly, darkened by a lowpass — the "big empty lab" space
+    const d = c.createDelay(1.5), fb = c.createGain(), lp = c.createBiquadFilter(), wet = c.createGain();
+    d.delayTime.value = SPB * 0.75; fb.gain.value = 0.38; lp.type = 'lowpass'; lp.frequency.value = 2400; wet.gain.value = 0.55;
+    d.connect(lp).connect(fb).connect(d); lp.connect(wet).connect(bus);
+    echo = d;
+    // pad filter with a slow LFO on the cutoff
+    padF = c.createBiquadFilter(); padF.type = 'lowpass'; padF.frequency.value = 900; padF.Q.value = 0.7;
+    const lfo = c.createOscillator(), lfoG = c.createGain();
+    lfo.frequency.value = 0.045; lfoG.gain.value = 450; lfo.connect(lfoG).connect(padF.frequency); lfo.start();
+    padF.connect(bus);
+    g = { ctx: c };
+    return true;
+  }
+  const level = () => Math.max(0, Math.min(2, CFG.musicVol)) * 0.35;
+  function fade(to, secs) {
+    if (!g) return;
+    const t = g.ctx.currentTime;
+    bus.gain.cancelScheduledValues(t);
+    bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), t);
+    bus.gain.exponentialRampToValueAtTime(Math.max(0.0001, to), t + secs);
+  }
+  function voice(type, freq, t, dur, vol, dest, attack = 0.01, detune = 0) {
+    const c = g.ctx, o = c.createOscillator(), e = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t); o.detune.value = detune;
+    e.gain.setValueAtTime(0.0001, t);
+    e.gain.exponentialRampToValueAtTime(vol, t + attack);
+    e.gain.setValueAtTime(vol, t + Math.max(attack, dur * 0.6));
+    e.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(e); dest.forEach(x => e.connect(x));
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function bubble(t) {
+    const c = g.ctx, o = c.createOscillator(), e = c.createGain();
+    const f0 = 380 + rnd() * 500;
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2.6, t + 0.07);
+    e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(0.05, t + 0.01); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(e).connect(bus); e.connect(echo);
+    o.start(t); o.stop(t + 0.12);
+  }
+  function tick(t, vol) {
+    const c = g.ctx, len = Math.floor(c.sampleRate * 0.03), b = c.createBuffer(1, len, c.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+    const src = c.createBufferSource(), hp = c.createBiquadFilter(), e = c.createGain();
+    src.buffer = b; hp.type = 'highpass'; hp.frequency.value = 6500; e.gain.value = vol;
+    src.connect(hp).connect(e).connect(bus); src.start(t);
+  }
+  function scheduleBar(t0) {
+    if (bar % 2 === 0 && wantMood !== mood) mood = wantMood;
+    const boss = mood === 'boss', prog = boss ? BOSS : CALM;
+    const ch = prog[Math.floor(bar / 2) % prog.length];
+    const section = Math.floor(bar / 8) % 4;               // 0 sparse · 1 arp · 2 arp+bubbles · 3 thin out
+    // pad: once per chord (every 2 bars), long soft attack, two detuned voices
+    if (bar % 2 === 0) ch.tones.slice(0, 4).forEach(m => {
+      voice('sawtooth', N(m), t0, BAR * 2 + 0.6, 0.016, [padF], 1.4, -7);
+      voice('triangle', N(m), t0, BAR * 2 + 0.6, 0.03, [padF], 1.4, 6);
+    });
+    // bass: root on beats 1 and 3 (boss: also the "and" of 4)
+    voice('sine', N(ch.root), t0, SPB * 1.8, 0.13, [bus], 0.02);
+    voice('sine', N(ch.root + (bar % 2 ? 7 : 0)), t0 + SPB * 2, SPB * 1.6, 0.1, [bus], 0.02);
+    if (boss) voice('sine', N(ch.root), t0 + SPB * 3.5, SPB * 0.45, 0.08, [bus], 0.02);
+    // arpeggio
+    if (section !== 0 || boss) {
+      const pat = ARPS[boss ? 0 : (Math.floor(bar / 4) % ARPS.length)];
+      const step = SPB / 4;
+      pat.forEach((ix, k) => {
+        if (ix === null) return;
+        if (section === 3 && !boss && k % 4 !== 0) return;
+        const m = (ix >= 5 ? ch.tones[ix - 5] + 12 : ch.tones[ix]) + 12;
+        voice('sine', N(m), t0 + k * step, boss ? 0.16 : 0.22, boss ? 0.04 : 0.035, [bus, echo], 0.005);
+      });
+    }
+    // ticking: soft 8ths, the lab's "machines"
+    for (let k = 0; k < 8; k++) tick(t0 + k * SPB / 2 + (k % 2 ? SPB * 0.06 : 0), k % 2 ? 0.05 : (boss ? 0.08 : 0.035));
+    // bubbles every few bars, a little cluster each time
+    if ((section === 2 || bar % 4 === 3) && rnd() < 0.8) {
+      const n = 2 + Math.floor(rnd() * 3), at = t0 + SPB * (1 + rnd() * 2);
+      for (let k = 0; k < n; k++) bubble(at + k * (0.07 + rnd() * 0.09));
+    }
+  }
+  function pump() {
+    if (!on || !g) return;
+    const now = g.ctx.currentTime;
+    if (g.ctx.state !== 'running') return;
+    if (nextBar < now) nextBar = now + 0.1;                 // after a pause: restart cleanly, never burst-play missed bars
+    while (nextBar < now + 0.6) { scheduleBar(nextBar); nextBar += BAR; bar++; }
+  }
+  function play() {
+    if (on || !save.music || document.hidden) return;
+    if (!build()) return;
+    on = true; nextBar = 0; bar = 0;
+    if (!ducked) fade(level(), 2.5);
+    timer = setInterval(pump, 150); pump();
+  }
+  function stop(secs = 0.6) {
+    if (!on) return;
+    on = false; clearInterval(timer); fade(0.0001, secs);
+  }
+  document.addEventListener('visibilitychange', () => document.hidden ? stop(0.1) : play());
+  window.addEventListener('platform:pause', () => stop(0.1));
+  window.addEventListener('platform:resume', () => play());
+  return {
+    kick: play,                                    // called on every tap (iOS only allows audio after a gesture)
+    reset: () => { stop(0); g = null; },           // the audio context was rebuilt
+    setEnabled: v => v ? play() : stop(0.8),
+    setMood: m => { wantMood = m === 'boss' ? 'boss' : 'calm'; },
+    // offline preview for tools: renders `bars` bars into an OfflineAudioContext
+    renderTo: (c, out, bars, m) => { g = null; build({ ctx: c, out }); bus.gain.value = level(); mood = wantMood = m; for (let b = 0; b < bars; b++) { bar = b; scheduleBar(0.05 + b * BAR); } g = null; },
+    duck: v => { ducked = v; if (on) fade(v ? 0.0001 : level(), v ? 0.4 : 1.5); }   // ads, big jingles
   };
 })();
 const buzz = ms => {
@@ -640,6 +793,7 @@ function showTips(li) {
 }
 
 function startLevel(li, restore) {
+  music.setMood(LEVELS[li] && LEVELS[li].hard ? 'boss' : 'calm');
   S = restore ? Object.assign(newLevelState(li), restore) : newLevelState(li);
   if (restore) {
     // snapshots from older builds: no hidden flags / old history format
@@ -1134,9 +1288,9 @@ function playAd(kind) {
 }
 async function playNativeAd(kind) {
   if (!P.ads.isReady(kind)) { toast(tr().adNotReady); return false; }
-  pauseClock();
+  pauseClock(); music.duck(true);
   const ok = kind === 'reward' ? await P.ads.showRewarded() : await P.ads.showInterstitial();
-  resumeClock();
+  resumeClock(); music.duck(false);
   sfx.unlock();
   if (ok) track('ad_watched', { kind, level: S ? S.li + 1 : 0 });
   if (ok && kind === 'reward') sfx.coin();
@@ -1162,8 +1316,8 @@ function playDemoAd(kind) {
       close.hidden = false;
       close.focus();
     }, 1000);
-    pauseClock();
-    const onClose = () => { close.removeEventListener('click', onClose); hide('#adOverlay'); resumeClock(); resolve(true); };
+    pauseClock(); music.duck(true);
+    const onClose = () => { close.removeEventListener('click', onClose); hide('#adOverlay'); resumeClock(); music.duck(false); resolve(true); };
     close.addEventListener('click', onClose);
   });
 }
@@ -1301,6 +1455,8 @@ function renderSettings() {
   $('#langEn').setAttribute('aria-pressed', save.lang === 'en');
   $('#soundOn').setAttribute('aria-pressed', !!save.sound);
   $('#soundOff').setAttribute('aria-pressed', !save.sound);
+  $('#musicOn').setAttribute('aria-pressed', !!save.music);
+  $('#musicOff').setAttribute('aria-pressed', !save.music);
   $('#lookBalls').setAttribute('aria-pressed', save.variant === 'balls');
   $('#lookLiquid').setAttribute('aria-pressed', save.variant === 'liquid');
   const priceOf = (id, fallback) => (NATIVE && P.iap.price(id)) || fallback;
@@ -1350,6 +1506,8 @@ $('#langUk').addEventListener('click', () => { save.lang = 'uk'; persist(); rend
 $('#langEn').addEventListener('click', () => { save.lang = 'en'; persist(); renderSettings(); });
 $('#soundOn').addEventListener('click', () => { save.sound = true; persist(); renderSettings(); sfx.unlock(); sfx.pick(3); });
 $('#soundOff').addEventListener('click', () => { save.sound = false; persist(); renderSettings(); });
+$('#musicOn').addEventListener('click', () => { save.music = true; persist(); renderSettings(); sfx.unlock(); music.setEnabled(true); track('music_toggle', { on: 1 }); });
+$('#musicOff').addEventListener('click', () => { save.music = false; persist(); renderSettings(); music.setEnabled(false); track('music_toggle', { on: 0 }); });
 async function buy(id) {
   sfx.unlock();
   if (NATIVE) { pauseClock(); const ok = await P.iap.buy(id); resumeClock(); if (!ok) { toast(tr().purchaseFailed); return false; } }
