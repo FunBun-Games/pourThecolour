@@ -574,7 +574,6 @@ const sfx = (() => {
    round sine bass, faint ticking, and liquid bubbles now and then. Boss levels switch to a darker minor
    progression with a busier arpeggio. Scheduled ahead on the audio clock, so taps never make it stutter. */
 const music = window.music = (() => {
-  const BPM = 84, SPB = 60 / BPM, BAR = SPB * 4;
   const N = m => 440 * Math.pow(2, (m - 69) / 12);
   // chords as MIDI notes; each lasts 2 bars
   const CALM = [
@@ -600,15 +599,16 @@ const music = window.music = (() => {
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-  function build(gr = sfx.graph()) {
-    if (!gr) return false;
-    if (g && g.ctx === gr.ctx) return true;
-    const c = gr.ctx;
-    bus = c.createGain(); bus.gain.value = 0.0001;
-    bus.connect(gr.out);
-    // echo: two taps feeding back softly, darkened by a lowpass — the "big empty lab" space
+  // mg = music master (on/off, ducking); each mood gets its own chain (bus + echo + pad filter) under it,
+  // so switching mood can cut the notes already queued for the old one
+  let mg = null;
+  function chain() {
+    const c = g.ctx;
+    if (bus) { const old = bus; old.gain.setTargetAtTime(0.0001, c.currentTime, 0.08); setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 4000); }
+    bus = c.createGain(); bus.connect(mg);
+    // echo: feedback delay darkened by a lowpass — the "big empty lab" space
     const d = c.createDelay(1.5), fb = c.createGain(), lp = c.createBiquadFilter(), wet = c.createGain();
-    d.delayTime.value = SPB * 0.75; fb.gain.value = 0.38; lp.type = 'lowpass'; lp.frequency.value = 2400; wet.gain.value = 0.55;
+    d.delayTime.value = 0.536; fb.gain.value = 0.38; lp.type = 'lowpass'; lp.frequency.value = 2400; wet.gain.value = 0.55;
     d.connect(lp).connect(fb).connect(d); lp.connect(wet).connect(bus);
     echo = d;
     // pad filter with a slow LFO on the cutoff
@@ -616,16 +616,22 @@ const music = window.music = (() => {
     const lfo = c.createOscillator(), lfoG = c.createGain();
     lfo.frequency.value = 0.045; lfoG.gain.value = 450; lfo.connect(lfoG).connect(padF.frequency); lfo.start();
     padF.connect(bus);
-    g = { ctx: c };
+  }
+  function build(gr = sfx.graph()) {
+    if (!gr) return false;
+    if (g && g.ctx === gr.ctx) return true;
+    g = { ctx: gr.ctx }; bus = null;
+    mg = gr.ctx.createGain(); mg.gain.value = 0.0001; mg.connect(gr.out);
+    chain();
     return true;
   }
   const level = () => Math.max(0, Math.min(2, CFG.musicVol)) * 0.35;
   function fade(to, secs) {
     if (!g) return;
     const t = g.ctx.currentTime;
-    bus.gain.cancelScheduledValues(t);
-    bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), t);
-    bus.gain.exponentialRampToValueAtTime(Math.max(0.0001, to), t + secs);
+    mg.gain.cancelScheduledValues(t);
+    mg.gain.setValueAtTime(Math.max(0.0001, mg.gain.value), t);
+    mg.gain.exponentialRampToValueAtTime(Math.max(0.0001, to), t + secs);
   }
   function voice(type, freq, t, dur, vol, dest, attack = 0.01, detune = 0) {
     const c = g.ctx, o = c.createOscillator(), e = c.createGain();
@@ -652,9 +658,39 @@ const music = window.music = (() => {
     src.buffer = b; hp.type = 'highpass'; hp.frequency.value = 6500; e.gain.value = vol;
     src.connect(hp).connect(e).connect(bus); src.start(t);
   }
+  // returns the bar's length in seconds (calm 84 BPM, boss 112 BPM)
   function scheduleBar(t0) {
-    if (bar % 2 === 0 && wantMood !== mood) mood = wantMood;
-    const boss = mood === 'boss', prog = boss ? BOSS : CALM;
+    if (wantMood !== mood) { mood = wantMood; bar = 0; }
+    const boss = mood === 'boss';
+    const SPB = 60 / (boss ? 112 : 84), BAR = SPB * 4;
+    const prog = boss ? BOSS : CALM;
+    if (boss) {
+      // one chord per bar: Am9 → Fmaj7 → Dm9 → E7
+      const ch = prog[bar % prog.length];
+      // pad: darker and lower, short swell each bar
+      ch.tones.slice(0, 4).forEach(m => voice('sawtooth', N(m - 12), t0, BAR + 0.3, 0.012, [padF], 0.3, -9));
+      // driving 8th-note bass (sine + a little square for bite)
+      for (let k = 0; k < 8; k++) {
+        const m = ch.root + (k === 6 ? 12 : 0);
+        voice('sine', N(m), t0 + k * SPB / 2, SPB * 0.42, k % 2 ? 0.09 : 0.14, [bus], 0.006);
+        voice('square', N(m), t0 + k * SPB / 2, SPB * 0.25, 0.012, [padF], 0.004);
+      }
+      // kick-like thump on 1 and 3
+      [0, 2].forEach(q => { const c = g.ctx, o = c.createOscillator(), e = c.createGain(), t = t0 + q * SPB;
+        o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+        e.gain.setValueAtTime(0.22, t); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+        o.connect(e).connect(bus); o.start(t); o.stop(t + 0.2); });
+      // fast 16th arpeggio, two octaves up
+      ARPS[0].forEach((ix, k) => {
+        if (ix === null) ix = k % 5;
+        const m = (ix >= 5 ? ch.tones[ix - 5] + 12 : ch.tones[ix]) + 12;
+        voice('triangle', N(m), t0 + k * SPB / 4, 0.12, k % 4 ? 0.026 : 0.04, [bus, echo], 0.004);
+      });
+      // alarm-ish two-note blip every 4th bar
+      if (bar % 4 === 3) [0, 1].forEach(k => voice('square', N(81 - k * 1), t0 + SPB * (2 + k * 0.5), SPB * 0.4, 0.014, [bus, echo], 0.01));
+      for (let k = 0; k < 16; k++) tick(t0 + k * SPB / 4, k % 4 === 2 ? 0.09 : 0.035);
+      return BAR;
+    }
     const ch = prog[Math.floor(bar / 2) % prog.length];
     const section = Math.floor(bar / 8) % 4;               // 0 sparse · 1 arp · 2 arp+bubbles · 3 thin out
     // pad: once per chord (every 2 bars), long soft attack, two detuned voices
@@ -662,35 +698,34 @@ const music = window.music = (() => {
       voice('sawtooth', N(m), t0, BAR * 2 + 0.6, 0.016, [padF], 1.4, -7);
       voice('triangle', N(m), t0, BAR * 2 + 0.6, 0.03, [padF], 1.4, 6);
     });
-    // bass: root on beats 1 and 3 (boss: also the "and" of 4)
+    // bass: root on beats 1 and 3
     voice('sine', N(ch.root), t0, SPB * 1.8, 0.13, [bus], 0.02);
     voice('sine', N(ch.root + (bar % 2 ? 7 : 0)), t0 + SPB * 2, SPB * 1.6, 0.1, [bus], 0.02);
-    if (boss) voice('sine', N(ch.root), t0 + SPB * 3.5, SPB * 0.45, 0.08, [bus], 0.02);
     // arpeggio
-    if (section !== 0 || boss) {
-      const pat = ARPS[boss ? 0 : (Math.floor(bar / 4) % ARPS.length)];
-      const step = SPB / 4;
+    if (section !== 0) {
+      const pat = ARPS[Math.floor(bar / 4) % ARPS.length];
       pat.forEach((ix, k) => {
         if (ix === null) return;
-        if (section === 3 && !boss && k % 4 !== 0) return;
+        if (section === 3 && k % 4 !== 0) return;
         const m = (ix >= 5 ? ch.tones[ix - 5] + 12 : ch.tones[ix]) + 12;
-        voice('sine', N(m), t0 + k * step, boss ? 0.16 : 0.22, boss ? 0.04 : 0.035, [bus, echo], 0.005);
+        voice('sine', N(m), t0 + k * SPB / 4, 0.22, 0.035, [bus, echo], 0.005);
       });
     }
     // ticking: soft 8ths, the lab's "machines"
-    for (let k = 0; k < 8; k++) tick(t0 + k * SPB / 2 + (k % 2 ? SPB * 0.06 : 0), k % 2 ? 0.05 : (boss ? 0.08 : 0.035));
+    for (let k = 0; k < 8; k++) tick(t0 + k * SPB / 2 + (k % 2 ? SPB * 0.06 : 0), k % 2 ? 0.05 : 0.035);
     // bubbles every few bars, a little cluster each time
     if ((section === 2 || bar % 4 === 3) && rnd() < 0.8) {
       const n = 2 + Math.floor(rnd() * 3), at = t0 + SPB * (1 + rnd() * 2);
       for (let k = 0; k < n; k++) bubble(at + k * (0.07 + rnd() * 0.09));
     }
+    return BAR;
   }
   function pump() {
     if (!on || !g) return;
     const now = g.ctx.currentTime;
     if (g.ctx.state !== 'running') return;
     if (nextBar < now) nextBar = now + 0.1;                 // after a pause: restart cleanly, never burst-play missed bars
-    while (nextBar < now + 0.6) { scheduleBar(nextBar); nextBar += BAR; bar++; }
+    while (nextBar < now + 0.6) { nextBar += scheduleBar(nextBar); bar++; }
   }
   function play() {
     if (on || !save.music || document.hidden) return;
@@ -710,9 +745,15 @@ const music = window.music = (() => {
     kick: play,                                    // called on every tap (iOS only allows audio after a gesture)
     reset: () => { stop(0); g = null; },           // the audio context was rebuilt
     setEnabled: v => v ? play() : stop(0.8),
-    setMood: m => { wantMood = m === 'boss' ? 'boss' : 'calm'; },
+    setMood: m => {
+      const w = m === 'boss' ? 'boss' : 'calm';
+      if (w === wantMood) return;
+      wantMood = w;
+      // start the new mood almost at once: the next bar begins in 0.25 s instead of waiting out the current one
+      if (on && g) { chain(); nextBar = g.ctx.currentTime + 0.15; }
+    },
     // offline preview for tools: renders `bars` bars into an OfflineAudioContext
-    renderTo: (c, out, bars, m) => { g = null; build({ ctx: c, out }); bus.gain.value = level(); mood = wantMood = m; for (let b = 0; b < bars; b++) { bar = b; scheduleBar(0.05 + b * BAR); } g = null; },
+    renderTo: (c, out, bars, m) => { g = null; build({ ctx: c, out }); mg.gain.value = level(); mood = wantMood = m; let t = 0.05; bar = 0; for (let b = 0; b < bars; b++) { t += scheduleBar(t); bar++; } g = null; },
     duck: v => { ducked = v; if (on) fade(v ? 0.0001 : level(), v ? 0.4 : 1.5); }   // ads, big jingles
   };
 })();
@@ -792,9 +833,17 @@ function showTips(li) {
   next();
 }
 
+// A hidden ball never moves while hidden, so its starting slot identifies it. Once the player has seen it,
+// it stays visible on restarts and replays of the same level (also after closing the app).
+function rememberSeen(ti, p) {
+  if (!save.seen || save.seen.li !== S.li) save.seen = { li: S.li, k: [] };
+  const key = ti + ':' + p;
+  if (!save.seen.k.includes(key)) { save.seen.k.push(key); persist(); }
+}
 function startLevel(li, restore) {
   music.setMood(LEVELS[li] && LEVELS[li].hard ? 'boss' : 'calm');
   S = restore ? Object.assign(newLevelState(li), restore) : newLevelState(li);
+  if (!restore && save.seen && save.seen.li === li) save.seen.k.forEach(key => { const [ti, p] = key.split(':').map(Number); if (S.hidden[ti] && p < S.hidden[ti].length) S.hidden[ti][p] = 0; });
   if (restore) {
     // snapshots from older builds: no hidden flags / old history format
     if (!restore.hidden || restore.hidden.length !== S.tubes.length) S.hidden = S.tubes.map(t => t.map(() => 0));
@@ -1040,7 +1089,8 @@ async function pour(i, j) {
   S.history.push({ t: S.tubes.map(t => t.slice()), h: S.hidden.map(h => h.slice()) });
   // hidden flags travel with the balls; moved balls are on top, so they are visible; the new top of the source is revealed
   for (let k = 0; k < n; k++) { S.hidden[i].pop(); S.hidden[j].push(0); }
-  if (S.hidden[i].length) S.hidden[i][S.hidden[i].length - 1] = 0;
+  const top = S.hidden[i].length - 1;
+  if (top >= 0 && S.hidden[i][top]) { S.hidden[i][top] = 0; rememberSeen(i, top); }
   S.busy = true;
   S.moves++;
   if (S.li <= 1) hint('');
