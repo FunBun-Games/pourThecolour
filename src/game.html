@@ -833,17 +833,9 @@ function showTips(li) {
   next();
 }
 
-// A hidden ball never moves while hidden, so its starting slot identifies it. Once the player has seen it,
-// it stays visible on restarts and replays of the same level (also after closing the app).
-function rememberSeen(ti, p) {
-  if (!save.seen || save.seen.li !== S.li) save.seen = { li: S.li, k: [] };
-  const key = ti + ':' + p;
-  if (!save.seen.k.includes(key)) { save.seen.k.push(key); persist(); }
-}
 function startLevel(li, restore) {
   music.setMood(LEVELS[li] && LEVELS[li].hard ? 'boss' : 'calm');
   S = restore ? Object.assign(newLevelState(li), restore) : newLevelState(li);
-  if (!restore && save.seen && save.seen.li === li) save.seen.k.forEach(key => { const [ti, p] = key.split(':').map(Number); if (S.hidden[ti] && p < S.hidden[ti].length) S.hidden[ti][p] = 0; });
   if (restore) {
     // snapshots from older builds: no hidden flags / old history format
     if (!restore.hidden || restore.hidden.length !== S.tubes.length) S.hidden = S.tubes.map(t => t.map(() => 0));
@@ -1089,8 +1081,7 @@ async function pour(i, j) {
   S.history.push({ t: S.tubes.map(t => t.slice()), h: S.hidden.map(h => h.slice()) });
   // hidden flags travel with the balls; moved balls are on top, so they are visible; the new top of the source is revealed
   for (let k = 0; k < n; k++) { S.hidden[i].pop(); S.hidden[j].push(0); }
-  const top = S.hidden[i].length - 1;
-  if (top >= 0 && S.hidden[i][top]) { S.hidden[i][top] = 0; rememberSeen(i, top); }
+  if (S.hidden[i].length) S.hidden[i][S.hidden[i].length - 1] = 0;
   S.busy = true;
   S.moves++;
   if (S.li <= 1) hint('');
@@ -1099,7 +1090,7 @@ async function pour(i, j) {
   if (liquidMode()) await pourLiquid(i, j, n, color, reduce);
   else await pourBalls(i, j, n, color, reduce);
   buzz(8);
-  revealDom(i);
+  revealDom(i); revealDom(j);
   // both tubes re-check their state: a finished tube poured away must stop glowing
   ta.classList.toggle('done', isDoneTube(a));
   tb.classList.toggle('done', isDoneTube(b));
@@ -1125,7 +1116,7 @@ async function pourBalls(i, j, n, color, reduce) {
   const dur = reduce ? 1 : 400, step = reduce ? 0 : 0.075;
   // measure everything first, then write: one layout pass instead of one per ball
   const befores = moving.map(el => el.getBoundingClientRect());
-  moving.forEach((el, k) => { el.classList.add('moving'); el.classList.remove('up'); el.style.setProperty('--i', base + k); tb.appendChild(el); });
+  moving.forEach((el, k) => { el.classList.add('moving'); el.classList.remove('up', 'hid'); el.style.setProperty('--i', base + k); tb.appendChild(el); });
   const tbTop = tb.getBoundingClientRect().top;
   const afters = moving.map(el => el.getBoundingClientRect());
   sfx.drops(color, n, dur / 1000 * 0.92, step);
