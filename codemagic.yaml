@@ -3,7 +3,7 @@
 #
 # One-time setup in Codemagic (see README.md, "Хмарна збірка"):
 #   1. Teams → Integrations → Developer Portal → add an App Store Connect API key, name it exactly
-#      "PourSort ASC" (or change `integrations.app_store_connect` below).
+#      "FunBun ASC" (or change `integrations.app_store_connect` below).
 #   2. Environment variable groups:
 #        firebase → GOOGLE_SERVICE_INFO_PLIST_B64   (base64 of GoogleService-Info.plist)
 #        admob    → ADMOB_APP_ID, ADMOB_BANNER_ID, ADMOB_INTERSTITIAL_ID, ADMOB_REWARDED_ID
@@ -17,11 +17,11 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
-      app_store_connect: PourSort ASC
+      app_store_connect: FunBun ASC
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.poursort.game
+        bundle_identifier: com.funbungames.coloursort
       groups:
         - firebase
         - admob

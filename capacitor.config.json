@@ -1,11 +1,11 @@
 {
-  "appId": "com.poursort.game",
-  "appName": "Pour & Sort",
+  "appId": "com.funbungames.coloursort",
+  "appName": "Colour Sort",
   "webDir": "www",
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#191c35",
-    "scheme": "PourSort"
+    "scheme": "ColourSort"
   },
   "plugins": {
     "SplashScreen": {

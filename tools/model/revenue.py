@@ -1,4 +1,4 @@
-"""Revenue model for 100 iOS installs of Pour & Sort.
+"""Revenue model for 100 iOS installs of Colour Sort Puzzle.
 Simulates players day by day (retention), levels played, and the ads the game actually shows by its rules.
 All inputs are assumptions from public benchmarks; change them at the top."""
 import random, json, sys

@@ -1,4 +1,4 @@
-# Pour & Sort
+# Colour Sort Puzzle
 
 Гібрид-казуальна головоломка «сортування кольорів» для iOS: HTML5-гра в обгортці Capacitor 8, реклама AdMob, покупки StoreKit, аналітика й віддалені налаштування Firebase, хмарна збірка Codemagic (Mac не потрібен).
 
@@ -40,12 +40,12 @@ npm test                       # перевірити рівні
 ## Запуск: кроки по порядку
 
 1. **Apple Developer Program** — особистий акаунт, $99 на рік.
-2. **App Store Connect → My Apps → +** — нова iOS-апка: назва, мова English (U.S.), Bundle ID `com.poursort.game`, SKU `poursort`. Потім: Agreements, Tax and Banking (Paid Apps), і три покупки з `store/listing.md`.
+2. **App Store Connect → My Apps → +** — нова iOS-апка: назва, мова English (U.S.), Bundle ID `com.funbungames.coloursort`, SKU `coloursort`. Потім: Agreements, Tax and Banking (Paid Apps), і три покупки з `store/listing.md`.
 3. **Ключ для Codemagic** — App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → «+», роль App Manager. Завантажити `.p8`, записати Issuer ID і Key ID.
-4. **GitHub** — репозиторій з цим кодом; Settings → Pages → гілка `main`, папка `/docs`. Політика буде за адресою `https://<логін>.github.io/<репозиторій>/privacy/`. Перед публікацією замінити в ній `{{DEVELOPER_NAME}}`, `{{CONTACT_EMAIL}}`, `{{EFFECTIVE_DATE}}`.
-5. **Codemagic** — увійти через GitHub, додати репозиторій. Teams → Integrations → Developer Portal → ключ із кроку 3, назва `PourSort ASC`. У `codemagic.yaml` вписати `APP_STORE_APPLE_ID`. Запустити збірку `ios-testflight` вручну.
+4. **GitHub** — репозиторій з цим кодом; Settings → Pages → гілка `main`, папка `/docs`. Політика: https://kostiantynsherman-jpg.github.io/pourThecolour/privacy/ (FunBun Games, funbun.dev@gmail.com).
+5. **Codemagic** — увійти через GitHub, додати репозиторій. Teams → Integrations → Developer Portal → ключ із кроку 3, назва `FunBun ASC`. У `codemagic.yaml` вписати `APP_STORE_APPLE_ID`. Запустити збірку `ios-testflight` вручну.
 6. **TestFlight** — встановити TestFlight на iPhone; збірка з'явиться там.
-7. **Firebase** — новий проєкт, iOS-застосунок з Bundle ID `com.poursort.game`, завантажити `GoogleService-Info.plist`, закодувати в base64 і додати в Codemagic як `GOOGLE_SERVICE_INFO_PLIST_B64` (група `firebase`). В Analytics → Data retention поставити 14 місяців.
+7. **Firebase** — новий проєкт, iOS-застосунок з Bundle ID `com.funbungames.coloursort`, завантажити `GoogleService-Info.plist`, закодувати в base64 і додати в Codemagic як `GOOGLE_SERVICE_INFO_PLIST_B64` (група `firebase`). В Analytics → Data retention поставити 14 місяців.
 8. **AdMob** — нова iOS-апка, три рекламні блоки (Banner, Interstitial, Rewarded), у Privacy & messaging створити повідомлення GDPR і IDFA. Ідентифікатори — в Codemagic, група `admob`: `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_INTERSTITIAL_ID`, `ADMOB_REWARDED_ID`.
 9. **Перед подачею на перевірку** — додати всі SKAdNetwork-ідентифікатори Google у `ios/App/App/Info.plist` (зараз там лише власний ідентифікатор Google), заповнити App Privacy за `store/listing.md`, завантажити скріншоти зі `store/screenshots/`.
 

@@ -2,21 +2,18 @@
 
 Language of the store page: English (U.S.) first; the soft launch runs in Canada, Australia and New Zealand.
 
-## Name (≤ 30) — pick one
+## Name (≤ 30)
+**Colour Sort Puzzle** (18 characters). Home-screen name under the icon: **Colour Sort**.
+Developer / seller: FunBun Games. Support: funbun.dev@gmail.com.
 
-| Option | Why |
-| --- | --- |
-| **Pour & Sort: Color Puzzle** | Current working name; "color puzzle" and "sort" are the genre's top search words |
-| **Sort Rivals: Color Puzzle** | Built around our unique hook (beat a rival's record); short and brandable |
-| **Pour Rush: Sort Puzzle** | Hints at the timed levels and the pouring feel |
-
-Availability is only confirmed when the name is reserved in App Store Connect (My Apps → + → New App).
+If App Store Connect says the name is taken, fall back to **Colour Sort Puzzle: Pour** or **Colour Sort Puzzle: Rivals**.
 
 ## Subtitle (≤ 30)
 Sort colors. Beat the record.
 
 ## Keywords (≤ 100, comma-separated, no spaces after commas, no words already in the name)
-ball,water,liquid,tube,brain,logic,relax,match,offline,boss,timer,rival,mind,iq,stack,fill,bottle
+"color" is the US spelling — the name already covers "colour", "sort" and "puzzle".
+color,ball,water,liquid,tube,pour,brain,logic,relax,match,offline,boss,timer,rival,mind,iq,bottle
 
 ## Promotional text (≤ 170, can change without review)
 New: locked tubes and hidden balls! Pour, sort and beat each level's record in fewer moves — then try the boss levels.

@@ -1,8 +1,8 @@
 {
-  "name": "pour-and-sort",
+  "name": "colour-sort-puzzle",
   "version": "0.1.0",
   "private": true,
-  "description": "Pour & Sort — a hybrid-casual colour sort puzzle (HTML5 + Capacitor, iOS first)",
+  "description": "Colour Sort Puzzle — a hybrid-casual colour sort puzzle (HTML5 + Capacitor, iOS first)",
   "scripts": {
     "build": "node tools/build.mjs",
     "levels": "node tools/levels/gen-levels.mjs",
