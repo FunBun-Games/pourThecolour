@@ -822,9 +822,37 @@ const music = window.music = (() => {
     src.buffer = b; hp.type = 'highpass'; hp.frequency.value = 6500; e.gain.value = vol;
     src.connect(hp).connect(e).connect(bus); src.start(t);
   }
-  // returns the bar's length in seconds (calm 84 BPM, boss 112 BPM)
+  // menu: a slow, bright "music box" tune over soft chords — home screen and level map only
+  const MENU = [
+    { root: 36, tones: [60, 64, 67, 71], mel: [76, null, 79, null, 83, 81, 79, null] },
+    { root: 45, tones: [57, 60, 64, 67], mel: [76, null, 72, null, 74, 76, null, null] },
+    { root: 41, tones: [53, 57, 60, 64], mel: [77, null, 76, 74, 72, null, 69, null] },
+    { root: 43, tones: [55, 59, 62, 64], mel: [71, null, 74, null, 79, null, null, null] },
+    { root: 36, tones: [60, 64, 67, 71], mel: [76, 79, 84, null, 83, null, 79, null] },
+    { root: 45, tones: [57, 60, 64, 67], mel: [81, null, 79, 76, 72, null, null, null] },
+    { root: 41, tones: [53, 57, 60, 64], mel: [77, 76, 74, null, 72, 74, 76, null] },
+    { root: 43, tones: [55, 59, 62, 65], mel: [74, null, null, null, 71, null, 74, null] }
+  ];
+  function menuBar(t0) {
+    const SPB = 60 / 76, BAR = SPB * 4, ch = MENU[bar % MENU.length], rest = Math.floor(bar / 8) % 3 === 2;
+    ch.tones.forEach(m => voice('triangle', N(m), t0, BAR + 0.8, 0.022, [padF], 0.9, 4));
+    voice('sine', N(ch.root), t0, SPB * 1.9, 0.12, [bus], 0.03);
+    voice('sine', N(ch.root + 7), t0 + SPB * 2, SPB * 1.7, 0.08, [bus], 0.03);
+    // every third phrase the melody rests and only soft broken chords play, so the loop breathes
+    if (!rest) ch.mel.forEach((m, k) => {
+      if (m === null) return;
+      const t = t0 + k * SPB / 2;
+      voice('sine', N(m), t, 1.1, 0.05, [bus, echo], 0.004);
+      voice('triangle', N(m + 12), t, 0.5, 0.012, [bus], 0.004);
+    });
+    else [0, 1, 2, 3, 2, 1].forEach((ix, k) => voice('sine', N(ch.tones[ix] + 12), t0 + k * SPB * 0.66, 0.8, 0.035, [bus, echo], 0.004));
+    if (bar % 4 === 2 && rnd() < 0.7) { const n = 2 + Math.floor(rnd() * 2), at = t0 + SPB * (1 + rnd() * 2); for (let k = 0; k < n; k++) bubble(at + k * (0.08 + rnd() * 0.1)); }
+    return BAR;
+  }
+  // returns the bar's length in seconds (calm 84 BPM, boss 112 BPM, menu 76 BPM)
   function scheduleBar(t0) {
     if (wantMood !== mood) { mood = wantMood; bar = 0; }
+    if (mood === 'menu') return menuBar(t0);
     const boss = mood === 'boss';
     const SPB = 60 / (boss ? 112 : 84), BAR = SPB * 4;
     const prog = boss ? BOSS : CALM;
@@ -910,7 +938,7 @@ const music = window.music = (() => {
     reset: () => { stop(0); g = null; },           // the audio context was rebuilt
     setEnabled: v => v ? play() : stop(0.8),
     setMood: m => {
-      const w = m === 'boss' ? 'boss' : 'calm';
+      const w = m === 'boss' || m === 'menu' ? m : 'calm';
       if (w === wantMood) return;
       wantMood = w;
       // start the new mood almost at once: the next bar begins in 0.25 s instead of waiting out the current one
@@ -1068,7 +1096,6 @@ function render() {
       tube.dataset.i = i;
       tube.setAttribute('aria-label', `${i + 1}`);
       fillTube(tube, i);
-      tube.addEventListener('click', () => onTube(i));
       row.appendChild(tube);
     }
     board.appendChild(row);
@@ -1078,12 +1105,11 @@ function render() {
 
 const liquidMode = () => save.variant === 'liquid';
 
-function fillTube(tube, i) {
+function fillTube(tube, i, t = S.tubes[i], h = S.hidden[i]) {
   tube.querySelectorAll('.ball, .layer').forEach(el => el.remove());
-  const t = S.tubes[i];
   t.forEach((c, n) => {
     const el = liquidMode() ? makeLayer(c, n, n === t.length - 1) : makeBall(c, n);
-    if (isHid(i, n)) el.classList.add('hid');
+    if (h && h[n]) el.classList.add('hid');
     tube.appendChild(el);
   });
   tube.classList.toggle('done', isDoneTube(t));
@@ -1097,15 +1123,6 @@ function fillTube(tube, i) {
     tube.appendChild(lock);
     tube.setAttribute('aria-label', `${i + 1} · ${tr().tipLockTitle}`);
   }
-}
-
-// Reveal the top unit of a tube in place (no re-render, so ball animations stay smooth)
-function revealDom(i) {
-  const tube = tubeEl(i); if (!tube) return;
-  const units = tube.querySelectorAll(liquidMode() ? '.layer' : '.ball');
-  units.forEach((el, p) => {
-    if (el.classList.contains('hid') && !isHid(i, p)) { el.classList.remove('hid'); el.classList.add('reveal'); setTimeout(() => el.classList.remove('reveal'), 450); }
-  });
 }
 
 let lockWasOpen = true;
@@ -1140,6 +1157,25 @@ function makeBall(c, n) {
 }
 
 const tubeEl = i => board.querySelector(`.tube[data-i="${i}"]`);
+// Which tube's home spot is under the finger. offsetLeft/Top ignore transforms, so a flask that is tilting
+// over another tube still answers at its own place and never blocks the tube under it.
+function tubeAt(x, y) {
+  const sr = stage.getBoundingClientRect(), b = ballSize(), pad = Math.max(4, (parseFloat(board.style.getPropertyValue('--gap')) || 12) / 2);
+  let best = null, bestD = Infinity;
+  board.querySelectorAll('.tube').forEach(el => {
+    const l = sr.left + el.offsetLeft - pad, r = l + el.offsetWidth + pad * 2;
+    const t = sr.top + el.offsetTop - b * 1.2, btm = sr.top + el.offsetTop + el.offsetHeight + pad;
+    if (x < l || x > r || y < t || y > btm) return;
+    const d = Math.abs(x - (l + r) / 2);
+    if (d < bestD) { bestD = d; best = Number(el.dataset.i); }
+  });
+  return best;
+}
+board.addEventListener('click', e => {
+  if (e.detail === 0) { const el = e.target.closest('.tube'); if (el) onTube(Number(el.dataset.i)); return; }   // keyboard
+  const i = tubeAt(e.clientX, e.clientY);
+  if (i !== null) onTube(i);
+});
 const ballSize = () => parseFloat(getComputedStyle(board).getPropertyValue('--b')) || 40;
 
 function setSelected(i) {
@@ -1149,7 +1185,7 @@ function setSelected(i) {
   if (i === null) return;
   const t = S.tubes[i], el = tubeEl(i), b = ballSize();
   el.classList.add('sel');
-  if (liquidMode()) return;
+  if (liquidMode() || tubeMoving(i)) return;
   const run = topRun(t), topIdx = t.length - 1;
   const up = (CFG.cap - topIdx - 1) * (b + 2) + b * 0.75 + 4;
   [...el.querySelectorAll('.ball')].slice(-run).forEach(ball => { ball.style.setProperty('--up', up + 'px'); ball.classList.add('up'); });
@@ -1246,47 +1282,72 @@ function shake(i) {
   sfx.nope(); buzz(20);
 }
 
-async function pour(i, j) {
+// A pour changes the game state at once, so the player can keep going while it animates.
+// Animations are queued per tube: a tube that is still moving finishes its previous pour first.
+// After each animation the two tubes are redrawn from a snapshot of their state after that very pour.
+const tubeMoving = i => !!(S && S.tcount && S.tcount[i] > 0);
+const animIdle = () => Promise.all(S && S.pending ? [...S.pending] : []);
+function pour(i, j) {
   const a = S.tubes[i], b = S.tubes[j];
   const color = a[a.length - 1];
   const n = Math.min(topRun(a), CFG.cap - b.length);
   const wasDone = isDoneTube(b), srcWasDone = isDoneTube(a);
   S.history.push({ t: S.tubes.map(t => t.slice()), h: S.hidden.map(h => h.slice()) });
   // hidden flags travel with the balls; moved balls are on top, so they are visible; the new top of the source is revealed
-  for (let k = 0; k < n; k++) { S.hidden[i].pop(); S.hidden[j].push(0); }
+  for (let k = 0; k < n; k++) { b.push(a.pop()); S.hidden[i].pop(); S.hidden[j].push(0); }
   if (S.hidden[i].length) S.hidden[i][S.hidden[i].length - 1] = 0;
-  S.busy = true;
+  const snapI = { t: a.slice(), h: S.hidden[i].slice() }, snapJ = { t: b.slice(), h: S.hidden[j].slice() };
+  S.sel = null;
   S.moves++;
   if (S.li <= 1) hint('');
-  const ta = tubeEl(i), tb = tubeEl(j);
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (liquidMode()) await pourLiquid(i, j, n, color, reduce);
-  else await pourBalls(i, j, n, color, reduce);
-  buzz(8);
-  revealDom(i); revealDom(j);
-  // both tubes re-check their state: a finished tube poured away must stop glowing
-  ta.classList.toggle('done', isDoneTube(a));
-  tb.classList.toggle('done', isDoneTube(b));
-  if (isDoneTube(b) && !wasDone && !srcWasDone) { sfx.done(color); burst(tb, color); }
-  refreshLock();
+  const won = isWon(S.tubes);
+  if (won) { S.won = true; S.tEnd = Date.now(); }
   updateHud();
-  S.busy = false;
-  if (isWon(S.tubes)) { S.won = true; S.tEnd = Date.now(); setTimeout(win, 350); return; }
-  if (!usefulMoveExists()) hint(tr().stuck, true);
-  else if ($('#hint').classList.contains('warn')) hint('');
+  if (!won) {
+    if (!usefulMoveExists()) hint(tr().stuck, true);
+    else if ($('#hint').classList.contains('warn')) hint('');
+  }
+  const myS = S, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  S.anim = S.anim || {}; S.tcount = S.tcount || {}; S.pending = S.pending || new Set();
+  const queued = tubeMoving(i);
+  if (queued) { const ta = tubeEl(i); ta.classList.remove('sel'); ta.querySelectorAll('.ball.up').forEach(x => x.classList.remove('up')); }
+  S.tcount[i] = (S.tcount[i] || 0) + 1; S.tcount[j] = (S.tcount[j] || 0) + 1;
+  const p = Promise.all([S.anim[i], S.anim[j]]).then(async () => {
+    if (S !== myS) return;
+    const waiting = Math.max(S.tcount[i], S.tcount[j]) - 1, hurry = Math.max(0.3, 1 / (1 + 0.7 * waiting));
+    if (liquidMode()) await pourLiquid(i, j, n, color, reduce, hurry);
+    else await pourBalls(i, j, n, color, reduce, hurry);
+    if (S !== myS) return;
+    buzz(8);
+    S.tcount[i]--; S.tcount[j]--;
+    syncTube(i, snapI); syncTube(j, snapJ);
+    if (isDoneTube(snapJ.t) && !wasDone && !srcWasDone) { sfx.done(color); burst(tubeEl(j), color); }
+    refreshLock();
+    // a tube the player picked while it was still moving gets its lifted look now
+    if (S.sel === i || S.sel === j) setSelected(S.sel);
+  }).catch(e => { console.error(e); if (S === myS) { S.tcount = {}; render(); } });
+  S.anim[i] = S.anim[j] = p;
+  S.pending.add(p); p.finally(() => S.pending && S.pending.delete(p));
+  if (won) animIdle().then(() => { if (S === myS) setTimeout(win, 350); });
 }
-
-async function pourBalls(i, j, n, color, reduce) {
-  const a = S.tubes[i], b = S.tubes[j];
+// Redraw one tube from a snapshot; balls that stopped being hidden get the reveal pop.
+function syncTube(i, snap) {
+  const tube = tubeEl(i); if (!tube) return;
+  const wasHid = [...tube.querySelectorAll(liquidMode() ? '.layer' : '.ball')].map(el => el.classList.contains('hid'));
+  fillTube(tube, i, snap.t, snap.h);
+  tube.querySelectorAll(liquidMode() ? '.layer' : '.ball').forEach((el, p) => {
+    if (wasHid[p] && !snap.h[p]) { el.classList.add('reveal'); setTimeout(() => el.classList.remove('reveal'), 450); }
+  });
+}
+async function pourBalls(i, j, n, color, reduce, hurry = 1) {
   const ta = tubeEl(i), tb = tubeEl(j);
   const allTop = [...ta.querySelectorAll('.ball')];
   const moving = allTop.slice(-n).reverse();             // top ball first
   allTop.slice(0, allTop.length - n).forEach(el => el.classList.remove('up'));
-  const base = b.length;
-  for (let k = 0; k < n; k++) b.push(a.pop());
-  ta.classList.remove('sel'); S.sel = null;
+  const base = tb.querySelectorAll('.ball').length;      // what the target shows now (earlier pours into it have landed)
+  ta.classList.remove('sel');
   const bs = ballSize();
-  const dur = reduce ? 1 : 400, step = reduce ? 0 : 0.075;
+  const dur = reduce ? 1 : 400 * hurry, step = reduce ? 0 : 0.075 * hurry;
   // measure everything first, then write: one layout pass instead of one per ball
   const befores = moving.map(el => el.getBoundingClientRect());
   moving.forEach((el, k) => { el.classList.add('moving'); el.classList.remove('up', 'hid'); el.style.setProperty('--i', base + k); tb.appendChild(el); });
@@ -1308,14 +1369,12 @@ async function pourBalls(i, j, n, color, reduce) {
   await Promise.all(done);
 }
 
-async function pourLiquid(i, j, n, color, reduce) {
-  const a = S.tubes[i], b = S.tubes[j];
+async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
   const ta = tubeEl(i), tb = tubeEl(j);
-  ta.classList.remove('sel'); S.sel = null;
+  ta.classList.remove('sel');
   const outgoing = [...ta.querySelectorAll('.layer')].slice(-n);
-  const base = b.length;
-  for (let k = 0; k < n; k++) b.push(a.pop());
-  const dur = reduce ? 1 : 260 + 140 * n;
+  const base = tb.querySelectorAll('.layer').length;
+  const dur = reduce ? 1 : (260 + 140 * n) * hurry;
   const ra = ta.getBoundingClientRect(), rb = tb.getBoundingClientRect(), sr = stage.getBoundingClientRect();
   // tip towards the target, unless the tilted flask would stick out of the screen — then tip the other way
   let dir = rb.left > ra.left ? 1 : -1;
@@ -1333,7 +1392,7 @@ async function pourLiquid(i, j, n, color, reduce) {
     { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.2 },
     { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.84 },
     { transform: 'translate(0, 0) rotate(0deg)' }
-  ], { duration: dur + 420, easing: 'ease-in-out' });
+  ], { duration: dur + 420 * hurry, easing: 'ease-in-out' });
   // a thin stream from the mouth down to the liquid surface in the target
   const x1 = mx - sr.left, y1 = my - sr.top + 2;
   const y2 = rb.bottom - sr.top - 4 - base * (bs + 2);
@@ -1349,9 +1408,9 @@ async function pourLiquid(i, j, n, color, reduce) {
     { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourStart + 0.08 },
     { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourEnd },
     { opacity: 0, clipPath: 'inset(100% 0 0 0)' }
-  ], { duration: dur + 420, easing: 'linear' }).finished.then(() => stream.remove());
+  ], { duration: dur + 420 * hurry, easing: 'linear' }).finished.then(() => stream.remove());
   // source layers drain, target layers fill
-  const total = dur + 420;
+  const total = dur + 420 * hurry;
   outgoing.forEach(el => el.classList.remove('surface'));
   const span = pourEnd - pourStart;
   outgoing.forEach((el, idx) => {
@@ -1378,7 +1437,6 @@ async function pourLiquid(i, j, n, color, reduce) {
   sfx.glug(color, n, total * pourStart / 1000, total * (pourEnd - pourStart) / 1000);
   await tilt.finished;
   ta.style.transformOrigin = ''; ta.style.zIndex = '';
-  fillTube(ta, i); fillTube(tb, j);
 }
 
 function burst(tube, color) {
@@ -1412,6 +1470,7 @@ async function onUndo() {
     updateHud();
     return;
   }
+  if (S.pending && S.pending.size) { const s0 = S; await animIdle(); if (S !== s0 || S.won) return; }
   const snap = S.history.pop();
   S.hidden = snap.h.map((col, ti) => col.map((v, p) => (v && S.hidden[ti] && S.hidden[ti][p] === 1) ? 1 : 0));
   S.tubes = snap.t;
@@ -1426,6 +1485,7 @@ async function onAddTube() {
   if (S.extra) { toast(tr().tubeUsed); return; }
   const choice = await offer(tr().tubeTitle, tr().tubeText, CFG.addTubeCost);
   if (!choice) return;
+  if (S.pending && S.pending.size) await animIdle();
   if (choice === 'coins') { save.coins -= CFG.addTubeCost; persist(); sfx.coin(); track('coins_spent', { on: 'tube', amount: CFG.addTubeCost, level: S.li + 1 }); }
   track('revive', { level: S.li + 1, how: choice, kind: 'tube' });
   S.extra = true;
@@ -1758,8 +1818,8 @@ $('#restoreBtn').addEventListener('click', async () => {
   if (owned.includes('noads')) { grantNoAds(); toast(tr().restored); } else toast(tr().nothingRestored);
 });
 $('#privacyBtn').addEventListener('click', () => { if (NATIVE_ADS()) P.ads.privacyOptions(); });
-$('#lookBalls').addEventListener('click', () => { save.variant = 'balls'; persist(); renderSettings(); if (S && !S.busy) { setSelected(null); render(); } });
-$('#lookLiquid').addEventListener('click', () => { save.variant = 'liquid'; persist(); renderSettings(); if (S && !S.busy) { setSelected(null); render(); } });
+$('#lookBalls').addEventListener('click', async () => { save.variant = 'balls'; persist(); renderSettings(); if (S) { await animIdle(); if (S && !S.busy) { setSelected(null); render(); } } });
+$('#lookLiquid').addEventListener('click', async () => { save.variant = 'liquid'; persist(); renderSettings(); if (S) { await animIdle(); if (S && !S.busy) { setSelected(null); render(); } } });
 $('#preAdGo').addEventListener('click', () => preAdDone && preAdDone());
 $('#jumpSel').addEventListener('change', e => { hide('#settingsOverlay'); playLevel(Number(e.target.value)); });
 $('#resetBtn').addEventListener('click', () => {

@@ -13,7 +13,7 @@ function screen(name) {
     S = null;
     $('#banner').hidden = true;
     if (NATIVE_ADS()) P.ads.hideBanner();
-    music.setMood('calm');
+    music.setMood('menu');
   }
   refreshCoins();
 }
