@@ -18,7 +18,10 @@ const levels = JSON.parse(rd('levels/levels.json')).map((l) => {
   if (l.hidden && l.hidden.flat().some(Boolean)) o.hidden = l.hidden;
   return o;
 });
-const game = rd('src/game.html').replace('__LEVELS__', JSON.stringify(levels));
+// /*@include parts/x.js*/ markers pull in source parts (kept as separate files to stay readable)
+const game = rd('src/game.html')
+  .replace(/\/\*@include ([\w/.-]+)\*\//g, (_, p) => rd('src/' + p))
+  .replace('__LEVELS__', JSON.stringify(levels));
 
 // env: release builds switch debug tools off; ad unit ids come from src/env.json
 const env = JSON.parse(rd('src/env.json'));

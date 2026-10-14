@@ -7,6 +7,7 @@
 | Шлях | Що це |
 | --- | --- |
 | `src/game.html` | Уся гра: розмітка, стилі, логіка. Один файл, без фреймворків |
+| `src/parts/` | Світи (фони, `biomes.js`) і екрани: головний, мапа рівнів, картка перед рівнем (`screens.js`). Вставляються в гру під час збірки |
 | `src/platform.js` | Шар платформи: реклама, покупки, аналітика, remote config, вібрація, збереження. У браузері вимкнений — гра показує демо-рекламу й демо-покупки |
 | `src/env.json` | Ідентифікатори реклами (зараз — тестові Google) і прапорець `debug` |
 | `levels/levels.json` | 500 рівнів. Кожен перевірений солвером; `minMoves` — точний мінімум ходів |
@@ -31,11 +32,11 @@ npm test                       # перевірити рівні
 ## Віддалені налаштування (без оновлення застосунку)
 
 У Firebase Remote Config можна перевизначити будь-яке число з `CFG` у `src/game.html`, наприклад:
-`adX` (ціна порятунку; бонуси ¾X і ½X рахуються від нього), `interFrom`, `interEvery`, `interAlwaysFrom`, `bannerFrom`, `timedFrom`, `timeFactor`, `timeFactorHard`, `reviveSecs`, `freeUndos`, `startCoins`, `variantSplit` (частка гравців з рідиною), `askTrackingAfter`.
+`adX` (ціна порятунку; бонуси ¾X і ½X рахуються від нього), `interFrom`, `interEvery`, `interAlwaysFrom`, `bannerFrom`, `timedFrom`, `timeFactor`, `timeFactorHard`, `reviveSecs`, `freeUndos`, `startCoins`, `variantSplit` (частка гравців з рідиною), `askTrackingAfter`, `musicVol`, `preBoostFrom` (з якого рівня пропонувати бонус на старт), `preBoostDiscount` (знижка на бонус на старт, 0.25 = −25%).
 
 ## Події аналітики
 
-`level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`. Властивість гравця: `look_variant` (balls / liquid).
+`level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`, `map_open`, `level_quit`, `pre_boost`, `music_toggle`. Властивість гравця: `look_variant` (balls / liquid).
 
 ## Запуск: кроки по порядку
 
