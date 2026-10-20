@@ -539,10 +539,25 @@ const CFG = {
   askTrackingAfter: 2,    // iOS tracking prompt after this level
   musicVol: 1,            // background music loudness (0 = silent, 1 = default)
   preBoostFrom: 4,        // starting bonuses are offered from this level
-  preBoostDiscount: 0.25  // starting bonus = in-level price × (1 − discount)
+  preBoostDiscount: 0.25, // starting bonus = in-level price × (1 − discount)
+  // stage 1: boosters in stock, gifts, dead-end offer (src/parts/boosters.js)
+  undoPack: 3,            // a bought undo = this many into stock, one used at once (price = adX)
+  undoCost: AD_X,
+  timeCost: AD_X,         // +30 s booster during a timed level
+  maxExtra: 1,            // extra tubes per level (pre-level bonus included)
+  stuckDelay: 600,        // ms after the last move before the dead-end window
+  stuckSolverMax: 30000,  // early dead-end proof: max states searched (0 = off)
+  stuckSolverMs: 250,     // … and max time per search
+  stuckSolverTubes: 11,   // … only on boards with up to this many tubes
+  giftTube: 1,            // tubes gifted at the first dead end (0 = no gift)
+  giftUndo: 3,            // undos gifted once on level giftUndoFrom
+  giftUndoFrom: 3,
+  giftTime: 1             // +30 s gifted once on the first timed level
 };
 function deriveCfg() {
   CFG.addTubeCost = CFG.adX;
+  CFG.undoCost = CFG.adX;
+  CFG.timeCost = CFG.adX;
   CFG.winAdBonus = Math.round(CFG.adX * 0.75);
   CFG.interBonus = Math.round(CFG.adX * 0.5);
 }
@@ -957,6 +972,7 @@ const buzz = ms => {
 
 /*@include parts/biomes.js*/
 /*@include parts/screens.js*/
+/*@include parts/boosters.js*/
 
 /* ---------- Game state ---------- */
 let S = null;
@@ -1004,7 +1020,7 @@ function hardIntro() {
   setTimeout(() => { $('#hardIntro').hidden = true; if (S) { S.busy = false; S.t0 = Date.now(); updateHud(); } }, 1700);
 }
 
-function showTips(li) {
+function showTips(li, then) {
   if (!S || S.li !== li) return;
   const L = LEVELS[li], t = tr();
   save.tips = save.tips || {};
@@ -1012,11 +1028,11 @@ function showTips(li) {
   if (L.lock && !save.tips.lock) list.push(['lock', t.tipLockTitle, t.tipLockText, `<div class="tip-chip lock-badge" style="position:static;transform:none;--c: var(--c${L.lock.k});--b:44px"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3h1.5A1.5 1.5 0 0 1 20 11.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20.5v-9A1.5 1.5 0 0 1 5.5 10H7zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg></div>`]);
   if (L.hidden && L.hidden.flat().some(Boolean) && !save.tips.hidden) list.push(['hidden', t.tipHiddenTitle, t.tipHiddenText, '<div style="position:relative;width:44px;height:44px;margin-inline:auto;--b:44px"><div class="ball hid" style="--i:0;bottom:0;left:0"></div></div>']);
   if (L.tubes.filter(x => !x.length).length === 1 && li > 0 && !save.tips.one) list.push(['one', t.tipOneTitle, t.tipOneText, '']);
-  if (!list.length) return;
+  if (!list.length) { if (then) then(); return; }
   pauseClock();
   const next = () => {
     const item = list.shift();
-    if (!item) { hide('#tipOverlay'); resumeClock(); persist(); return; }
+    if (!item) { hide('#tipOverlay'); resumeClock(); persist(); if (then) then(); return; }
     save.tips[item[0]] = 1;
     $('#tipIcon').innerHTML = item[3];
     $('#tipTitle').textContent = item[1];
@@ -1034,7 +1050,7 @@ function startLevel(li, restore, boosts) {
   // starting bonuses bought on the pre-level card; they stay for restarts of this attempt
   if (!restore && boosts && (boosts.tube || boosts.time)) {
     S.boosts = boosts;
-    if (boosts.tube) { S.extra = true; S.tubes.push([]); S.hidden.push([]); }
+    if (boosts.tube) { S.extra = 1; S.tubes.push([]); S.hidden.push([]); }
     if (boosts.time) S.bonus = CFG.reviveSecs;
   }
   if (restore) {
@@ -1044,13 +1060,14 @@ function startLevel(li, restore, boosts) {
   }
   S.sel = null; S.busy = false; S.won = false;
   pauseDepth = 0;
+  boostersOnStart();
   lockWasOpen = lockOpen();
   render();
   updateHud();
   $('#app').classList.toggle('hard', !!LEVELS[li].hard);
   if (LEVELS[li].hard && !restore) hardIntro();
   else if (limitOf(li) && !restore) toast(tr().timedToast(tr().clock(limitOf(li))));
-  if (!restore) setTimeout(() => showTips(li), LEVELS[li].hard ? 1800 : 300);
+  if (!restore) setTimeout(() => showTips(li, () => giftsFor(li)), LEVELS[li].hard ? 1800 : 300);
   if (!restore) {
     const L = LEVELS[li];
     track('level_start', { level: li + 1, boost_tube: S.boosts && S.boosts.tube ? 1 : 0, boost_time: S.boosts && S.boosts.time ? 1 : 0, variant: save.variant, hard: !!L.hard, timed: !!limitOf(li), lock: !!L.lock, hidden: !!L.hidden, one_empty: L.tubes.filter(x => !x.length).length === 1, replay: (save.best && save.best[li]) ? 1 : 0 });
@@ -1238,12 +1255,7 @@ function updateHud() {
   $('#rivalAva').style.setProperty('--rc', rv.color);
   $('#rivalText').textContent = t.rivalChip(rv.name, L.minMoves, t.clock(rivalSecs(L.minMoves)));
   $('#coins').textContent = save.coins;
-  const ub = $('#undoBadge');
-  if (S.undos > 0) { ub.className = 'badge'; ub.textContent = S.undos; }
-  else { ub.className = 'badge ad'; ub.textContent = t.adTag; }
-  const tb = $('#tubeBadge');
-  if (S.extra) { tb.className = 'badge ad'; tb.textContent = '✓'; }
-  else { tb.className = 'badge'; tb.innerHTML = `<span class="coin"></span>${CFG.addTubeCost}`; }
+  boosterHud();
   const bannerOn = !save.noAds && (S.li + 1) >= CFG.bannerFrom;
   $('#banner').hidden = !bannerOn;
   if (NATIVE_ADS()) { if (bannerOn) P.ads.showBanner(); else P.ads.hideBanner(); }
@@ -1254,7 +1266,7 @@ function hint(text, warn) {
   h.textContent = text || '';
   h.classList.toggle('warn', !!warn);
   $('#undoBtn').classList.toggle('pulse', !!warn);
-  $('#tubeBtn').classList.toggle('pulse', !!warn && !S.extra);
+  $('#tubeBtn').classList.toggle('pulse', !!warn && canAddTube());
 }
 
 /* ---------- Moves ---------- */
@@ -1303,10 +1315,7 @@ function pour(i, j) {
   const won = isWon(S.tubes);
   if (won) { S.won = true; S.tEnd = Date.now(); }
   updateHud();
-  if (!won) {
-    if (!usefulMoveExists()) hint(tr().stuck, true);
-    else if ($('#hint').classList.contains('warn')) hint('');
-  }
+  if (!won) afterBoardChange();
   const myS = S, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   S.anim = S.anim || {}; S.tcount = S.tcount || {}; S.pending = S.pending || new Set();
   const queued = tubeMoving(i);
@@ -1457,46 +1466,7 @@ function burst(tube, color) {
   }
 }
 
-/* ---------- Boosters ---------- */
-async function onUndo() {
-  sfx.unlock();
-  if (!S || S.busy || S.won || S.failed) return;
-  if (!S.history.length) { toast(tr().nothingToUndo); return; }
-  if (S.undos <= 0) {
-    const ok = await offer(tr().undoEmptyTitle, tr().undoEmptyText, null);
-    if (ok !== 'ad') return;
-    S.undos += CFG.undoAdRefill;
-    toast(tr().undosAdded(CFG.undoAdRefill));
-    updateHud();
-    return;
-  }
-  if (S.pending && S.pending.size) { const s0 = S; await animIdle(); if (S !== s0 || S.won) return; }
-  const snap = S.history.pop();
-  S.hidden = snap.h.map((col, ti) => col.map((v, p) => (v && S.hidden[ti] && S.hidden[ti][p] === 1) ? 1 : 0));
-  S.tubes = snap.t;
-  S.undos--; S.undosUsed++;
-  render(); updateHud(); lockWasOpen = lockOpen();
-  hint(usefulMoveExists() ? '' : tr().stuck, !usefulMoveExists());
-}
-
-async function onAddTube() {
-  sfx.unlock();
-  if (!S || S.busy || S.won || S.failed) return;
-  if (S.extra) { toast(tr().tubeUsed); return; }
-  const choice = await offer(tr().tubeTitle, tr().tubeText, CFG.addTubeCost);
-  if (!choice) return;
-  if (S.pending && S.pending.size) await animIdle();
-  if (choice === 'coins') { save.coins -= CFG.addTubeCost; persist(); sfx.coin(); track('coins_spent', { on: 'tube', amount: CFG.addTubeCost, level: S.li + 1 }); }
-  track('revive', { level: S.li + 1, how: choice, kind: 'tube' });
-  S.extra = true;
-  S.tubes.push([]);
-  S.history.forEach(h => { h.t.push([]); h.h.push([]); });
-  S.hidden.push([]);
-  setSelected(null);
-  render(); updateHud(); hint('');
-  toast(tr().tubeAdded);
-}
-
+/* ---------- Boosters: src/parts/boosters.js ---------- */
 function onRestart() {
   if (S && !S.won) track('level_restart', { level: S.li + 1, moves: S.moves, seconds: elapsed() });
   sfx.unlock();
@@ -1610,10 +1580,12 @@ function timeUp() {
   const cb = $('#reviveCoinBtn'), enough = save.coins >= CFG.adX;
   cb.disabled = !enough;
   cb.innerHTML = enough ? `<span class="coin"></span>${t.reviveCoins(CFG.reviveSecs, CFG.adX)}` : t.notEnough;
+  boosterFail();
   show('#failOverlay');
 }
 function revive(how) {
   track('revive', { level: S.li + 1, how: how || 'ad', kind: 'time' });
+  if (how !== 'stock') track('booster_use', { type: 'time', method: how || 'ad', level: S.li + 1 });
   S.bonus = (S.bonus || 0) + CFG.reviveSecs + Math.max(0, -remaining());
   S.failed = false;
   hide('#failOverlay');
@@ -1825,7 +1797,7 @@ $('#jumpSel').addEventListener('change', e => { hide('#settingsOverlay'); playLe
 $('#resetBtn').addEventListener('click', () => {
   if (!resetArmed) { resetArmed = true; $('#resetBtn').textContent = tr().resetConfirm; return; }
   const lang = save.lang;
-  save = Object.assign({}, DEFAULT_SAVE, { stats: {}, lang }); persist();
+  save = Object.assign({}, DEFAULT_SAVE, { stats: {}, lang }); ensureInv(); persist();
   hide('#settingsOverlay'); playLevel(0); toast('✓');
 });
 $('#replayBtn').addEventListener('click', () => { hide('#endOverlay'); playLevel(0); });

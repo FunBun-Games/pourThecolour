@@ -9,3 +9,4 @@ ios/App/App/GoogleService-Info.plist
 ios/DerivedData/
 *.ipa
 .DS_Store
+qa-out/
