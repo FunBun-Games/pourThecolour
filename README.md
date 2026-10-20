@@ -1,19 +1,20 @@
 # Colour Sort Puzzle
 
-Гібрид-казуальна головоломка «сортування кольорів» для iOS: HTML5-гра в обгортці Capacitor 8, реклама AdMob, покупки StoreKit, аналітика й віддалені налаштування Firebase, хмарна збірка Codemagic (Mac не потрібен).
+Гібрид-казуальна головоломка «сортування кольорів» для iOS: HTML5-гра в обгортці Capacitor 8, реклама AdMob, покупки StoreKit (магазин: набори, скарбничка, монети, без реклами), аналітика й віддалені налаштування Firebase, хмарна збірка Codemagic (Mac не потрібен).
 
 ## Що де лежить
 
 | Шлях | Що це |
 | --- | --- |
 | `src/game.html` | Уся гра: розмітка, стилі, логіка. Один файл, без фреймворків |
-| `src/parts/` | Світи (фони, `biomes.js`), екрани: головний, мапа рівнів, картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`). Вставляються в гру під час збірки |
+| `src/parts/` | Світи (фони, `biomes.js`), екрани: головний, мапа рівнів, картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`), магазин, нижня панель вкладок, скарбничка й стартовий набір (`shop.js`). Вставляються в гру під час збірки |
 | `src/platform.js` | Шар платформи: реклама, покупки, аналітика, remote config, вібрація, збереження. У браузері вимкнений — гра показує демо-рекламу й демо-покупки |
 | `src/env.json` | Ідентифікатори реклами (зараз — тестові Google) і прапорець `debug` |
 | `levels/levels.json` | 500 рівнів. Кожен перевірений солвером; `minMoves` — точний мінімум ходів |
 | `tools/levels/` | Генератори рівнів і солвер |
 | `tools/build.mjs` | Збирає `www/` (застосунок) і `dist/prototype.html` (веб-прототип) |
 | `tools/check-levels.mjs` | Швидка перевірка рівнів перед збіркою |
+| `tools/qa-stage2.mjs` | Бот етапу 2: вкладки й свайп, кожна покупка (демо), стартовий набір один раз, скарбничка, монети за рекламу з денним лімітом, «Відновити покупки», магазин поверх рівня, 320 px; скріншоти в `qa-out/stage2/` |
 | `tools/qa-stage1.mjs` | Бот Playwright етапу 1: глухий кут (кульки й рідина), подарунки, монети, нестача монет, реклама, запас, рестарт, солвер; скріншоти в `qa-out/stage1/` |
 | `ios/` | Xcode-проєкт (Swift Package Manager). Портретна орієнтація, лише iPhone |
 | `codemagic.yaml` | Хмарна збірка → TestFlight |
@@ -29,6 +30,7 @@ node tools/build.mjs --release # release: без інструментів тес
 npx cap sync ios               # скопіювати гру в iOS-проєкт
 npm test                       # перевірити рівні
 node tools/qa-stage1.mjs       # бот етапу 1 (після npm run build)
+node tools/qa-stage2.mjs       # бот етапу 2: магазин, вкладки, скарбничка
 ```
 
 ## Віддалені налаштування (без оновлення застосунку)
@@ -38,10 +40,13 @@ node tools/qa-stage1.mjs       # бот етапу 1 (після npm run build)
 
 Етап 1 (бустери й глухий кут): `undoPack` (скільки скасувань дає одна покупка), `maxExtra` (додаткових пробірок на рівень), `stuckDelay` (мс до вікна «Ходів більше немає»), `stuckSolverMax` / `stuckSolverMs` / `stuckSolverTubes` (межі пошуку раннього глухого кута; `stuckSolverMax: 0` вимикає), `giftTube`, `giftUndo`, `giftUndoFrom`, `giftTime` (подарунки). Ціни пробірки, скасувань і «+30 с» = `adX`.
 
+Етап 2 (магазин): `starterShowAt` (з якого рівня відкривається стартовий набір; ще — після першого глухого кута), `piggyPerWin` + `piggyPerStar` × зірки (скільки кладе в скарбничку перемога), `piggyCap` (ліміт скарбнички), `piggyBreakAt` (з якої суми її можна розбити), `adCoins` / `adCoinsPerDay` (монети за рекламу в магазині й скільки разів на день), `tabsSoon` (1 — вкладки Колекція / Рейтинг / Бонус показано із замком до своїх етапів, 0 — сховано). Вміст наборів (`starterPack`, `labPack`, `scientistPack`, `professorPack`) і ціни-заглушки (`…Price`) — теж у `CFG`, але це не числа, тож Remote Config їх не змінює; на iOS ціну завжди показує App Store.
+
 ## Події аналітики
 
 `level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`, `map_open`, `level_quit`, `pre_boost`, `music_toggle`,
-`stuck_offer` (level, how: coins / ad / stock / gift / shop / undo / restart / dismiss, kind: dead / early, gift, extra), `booster_use` (type: undo / tube / time, method: coins / ad / stock / gift, level), `booster_gift` (type, level, count). Властивість гравця: `look_variant` (balls / liquid).
+`stuck_offer` (level, how: coins / ad / stock / gift / shop / undo / restart / dismiss, kind: dead / early, gift, extra), `booster_use` (type: undo / tube / time, method: coins / ad / stock / gift, level), `booster_gift` (type, level, count),
+`shop_open` (from: tab / swipe / coins / hud / settings, level), `iap_offer_shown` (product, place: shop / popup / stuck), `purchase` (product, price, place: shop / popup / stuck, level, value, currency, transaction_id; у браузері demo=1), `purchase_fail` (product, place), `piggy_fill` (stage: ready / full, amount, level), `piggy_break` (amount), `shop_ad_coins` (amount, left), `tab_open` / `tab_swipe` (tab). Властивість гравця: `look_variant` (balls / liquid).
 
 ## Запуск: кроки по порядку
 

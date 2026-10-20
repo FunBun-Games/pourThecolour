@@ -15,6 +15,7 @@ function screen(name) {
     if (NATIVE_ADS()) P.ads.hideBanner();
     music.setMood('menu');
   }
+  tabsOnScreen(name);
   refreshCoins();
 }
 function refreshCoins() { document.querySelectorAll('[data-coins]').forEach(el => el.textContent = save.coins); }
@@ -39,6 +40,7 @@ function showHome() {
   const play = $('#homePlay');
   play.classList.toggle('boss', !!L.hard);
   $('#homePlayLabel').textContent = save.level >= LEVELS.length ? t.allDone : (L.hard ? t.playBoss(li + 1) : t.playLevel(li + 1));
+  setTimeout(() => { if (screenNow === 'home') shopOffers(); }, 350);
 }
 
 /* ----- Map ----- */
@@ -107,7 +109,10 @@ function showMap(opts = {}) {
     sc.scrollTop += (nr.top - sr.top) - sr.height * 0.55;
     if (opts.fresh) { node.classList.add('fresh'); sfx.unlockSound(); }
   }
-  if (opts.openLevel !== undefined) setTimeout(() => { if (screenNow === 'map') openPreLevel(opts.openLevel); }, opts.fresh ? 750 : 150);
+  // a one-time shop offer (starter pack, full piggy bank) goes first, then the pre-level card
+  const goPre = () => { if (screenNow === 'map') openPreLevel(opts.openLevel); };
+  if (opts.openLevel !== undefined) setTimeout(() => { if (screenNow === 'map' && !shopOffers(goPre)) goPre(); }, opts.fresh ? 750 : 150);
+  else setTimeout(() => { if (screenNow === 'map') shopOffers(); }, 350);
 }
 
 /* ----- Pre-level card ----- */

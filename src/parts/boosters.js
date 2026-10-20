@@ -372,6 +372,8 @@ function openStuck(kind) {
   if (!S) return;
   stuckSeen = stateKey();
   const t = tr(), gift = CFG.giftTube > 0 && !save.granted.tube && canAddTube();
+  let offerShown = '';
+  shopOnStuck();
   setSelected(null);
   pauseClock();
   const close = how => {
@@ -407,7 +409,11 @@ function openStuck(kind) {
       else {
         h += `<div class="st-row"><button class="btn primary st-btn" id="stCoins"${enough ? '' : ' disabled'}><span>${t.plusTube}</span><span class="st-sub"><span class="coin"></span>${cost}</span></button>` +
           `<button class="btn st-btn" id="stAd"><span>${t.plusTube}</span><span class="tag">${t.adTag}</span></button></div>`;
-        if (!enough) h += `<div class="st-pack"><small>${t.packNote}</small><button class="btn st-btn" id="stShop"><span class="st-sub"><span class="coin"></span>${t.packOffer(500, packPrice())}</span></button></div>`;
+        if (!enough) {
+          const pk = stuckPack();
+          h += `<div class="st-pack"><small>${t.packNote}</small><button class="btn st-btn ${pk.cls}" id="stShop">${pk.html}</button></div>`;
+          if (offerShown !== pk.id) { offerShown = pk.id; track('iap_offer_shown', { product: pk.id, place: 'stuck', level: lvlNo() }); }
+        }
       }
     }
     if (S.history.length) h += `<button class="btn" id="stUndo">${t.undoMove}</button>`;
@@ -431,7 +437,8 @@ function openStuck(kind) {
       close('ad'); addTubeNow();
     });
     on('#stShop', async () => {
-      if (await buy('coins_500')) { grantCoins(500); track('stuck_offer', { level: lvlNo(), how: 'shop', kind, gift: 0 }); render(); }
+      const id = stuckPack().id;
+      if (await shopBuy(id, 'stuck')) { track('stuck_offer', { level: lvlNo(), how: 'shop', kind, gift: 0, product: id }); render(); }
     });
     on('#stUndo', () => { close('undo'); onUndo(); });
     on('#stRestart', () => { close('restart'); onRestart(); });
@@ -443,8 +450,6 @@ function openStuck(kind) {
   if (gift) toolAnim($('#stuckAnim'), 'tube');
   sfx.nope(); buzz([30, 40, 30]);
 }
-const packPrice = () => (NATIVE && P.iap.price('coins_500')) || CFG.coins500Price;
-function grantCoins(n) { save.coins += n; persist(); refreshCoins(); if (S) updateHud(); toast(tr().coinsAdded(n)); }
 
 /* ----- bounded solver: proves "no win from here" (runs in a Web Worker) ----- */
 // res: 'win' (a solution exists), 'dead' (search exhausted: the level cannot be won any more), 'unknown' (limit hit)
@@ -517,17 +522,22 @@ function testerGifts() { save.granted = {}; persist(); toast(tr().tGiftsDone); }
 function testerStuck() {
   if (!S || S.won) { toast(tr().tNeedLevel); return false; }
   if (!$('#stuckOverlay').hidden) { stopToolAnim(); hide('#stuckOverlay'); resumeClock(); }
-  const sim = { tubes: S.tubes.map(t => t.slice()), hidden: S.hidden.map(h => h.slice()) };
+  // random play from the current board, and (every other try) from the level's first position in history
+  const bases = [{ tubes: S.tubes, hidden: S.hidden, keep: S.history.length }];
+  if (S.history.length) bases.push({ tubes: S.history[0].t, hidden: S.history[0].h, keep: 0 });
   const real = S;
   for (let attempt = 0; attempt < 400; attempt++) {
-    S = { ...real, tubes: sim.tubes.map(t => t.slice()), hidden: sim.hidden.map(h => h.slice()) };
+    const base = bases[attempt % bases.length];
+    S = { ...real, tubes: base.tubes.map(t => t.slice()), hidden: base.hidden.map(h => h.slice()) };
     const hist = [];
     for (let step = 0; step < 300; step++) {
       if (!usefulMoveExists()) {
         if (isWon(S.tubes)) break;
         const tubes = S.tubes, hidden = S.hidden;
         S = real;
-        S.history.push(...hist); S.tubes = tubes; S.hidden = hidden; S.moves += hist.length;
+        S.moves += hist.length - (S.history.length - base.keep);
+        S.history.length = base.keep;
+        S.history.push(...hist); S.tubes = tubes; S.hidden = hidden;
         stuckSeen = '';
         render(); updateHud(); lockWasOpen = lockOpen();
         afterBoardChange();

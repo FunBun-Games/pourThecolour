@@ -479,15 +479,8 @@ body.ingame .bg { --art-op: 0.42; }
       <div class="seg" role="group"><button id="musicOn" aria-pressed="false" data-t="on">On</button><button id="musicOff" aria-pressed="false" data-t="off">Off</button></div></div>
     <div class="setting"><span data-t="look">Look</span>
       <div class="seg" role="group"><button id="lookBalls" aria-pressed="false" data-t="balls">Balls</button><button id="lookLiquid" aria-pressed="false" data-t="liquidName">Liquid</button></div></div>
-    <p class="section-label" data-t="shop">Shop</p>
-    <div class="setting"><span data-t="noAds">Remove ads</span>
-      <button class="btn" id="noAdsBtn" style="min-height:40px;padding:8px 12px"></button></div>
-    <div class="setting"><span class="shop-name"><span class="coin" aria-hidden="true"></span>500</span>
-      <button class="btn" id="coins500Btn" style="min-height:40px;padding:8px 12px"></button></div>
-    <div class="setting"><span class="shop-name"><span class="coin" aria-hidden="true"></span>1500</span>
-      <button class="btn" id="coins1500Btn" style="min-height:40px;padding:8px 12px"></button></div>
     <div class="btns">
-      <button class="btn" id="restoreBtn" data-t="restore">Restore purchases</button>
+      <button class="btn" id="settingsShopBtn" data-t="shopBtn">Open the shop</button>
       <button class="btn" id="privacyBtn" data-t="privacyChoices" hidden>Ad privacy choices</button>
     </div>
     <div class="tester" id="testerTools">
@@ -552,7 +545,22 @@ const CFG = {
   giftTube: 1,            // tubes gifted at the first dead end (0 = no gift)
   giftUndo: 3,            // undos gifted once on level giftUndoFrom
   giftUndoFrom: 3,
-  giftTime: 1             // +30 s gifted once on the first timed level
+  giftTime: 1,            // +30 s gifted once on the first timed level
+  // stage 2: shop, tab bar, piggy bank (src/parts/shop.js). Prices are fallbacks: on iOS the App Store price is shown.
+  coins5000Price: '$12.99',
+  starterPrice: '$1.99', labPrice: '$4.99', scientistPrice: '$9.99', professorPrice: '$19.99', piggyPrice: '$4.99',
+  starterPack: { coins: 500, tube: 2, undo: 3, time: 2 },     // once per player
+  labPack: { coins: 1500, tube: 3, undo: 5, time: 3 },
+  scientistPack: { coins: 4000, tube: 8, undo: 10, time: 8 },
+  professorPack: { coins: 10000, tube: 20, undo: 25, time: 20 },
+  starterShowAt: 8,       // the starter pack opens on this level (or after the first dead end)
+  piggyPerWin: 10,        // every win drops piggyPerWin + piggyPerStar × stars into the piggy bank
+  piggyPerStar: 2,
+  piggyCap: 3000,
+  piggyBreakAt: 1000,     // it can be broken (bought) from this amount
+  adCoins: 50,            // coins for a rewarded ad in the shop …
+  adCoinsPerDay: 3,       // … this many times a day
+  tabsSoon: 1             // 1 = Collection / Ranking / Bonus tabs shown locked until their stages; 0 = hidden
 };
 function deriveCfg() {
   CFG.addTubeCost = CFG.adX;
@@ -973,6 +981,7 @@ const buzz = ms => {
 /*@include parts/biomes.js*/
 /*@include parts/screens.js*/
 /*@include parts/boosters.js*/
+/*@include parts/shop.js*/
 
 /* ---------- Game state ---------- */
 let S = null;
@@ -1624,6 +1633,7 @@ function win() {
   track('level_complete', { level: S.li + 1, moves: m, min_moves: min, seconds: secs, stars, undos: S.undosUsed, extra_tube: S.extra, restarts: S.restarts, fails: S.fails || 0, variant: save.variant, first: firstOrBetter ? 1 : 0 });
   save.stats[S.li] = { moves: m, min, secs, undos: S.undosUsed, extra: S.extra ? 1 : 0, stars, restarts: S.restarts, fails: S.fails || 0, timed: limitOf(S.li) ? 1 : 0, v: save.variant };
   save.level = Math.max(save.level, S.li + 1);
+  piggyOnWin(stars);
   persist();
   sfx.win(); buzz('success');
   const starSvg = on => `<svg class="star${on ? ' on' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.3l-5.8 3.1 1.2-6.5L2.6 9.4l6.5-.8z"/></svg>`;
@@ -1706,12 +1716,6 @@ function renderSettings() {
   $('#musicOff').setAttribute('aria-pressed', !save.music);
   $('#lookBalls').setAttribute('aria-pressed', save.variant === 'balls');
   $('#lookLiquid').setAttribute('aria-pressed', save.variant === 'liquid');
-  const priceOf = (id, fallback) => (NATIVE && P.iap.price(id)) || fallback;
-  const buyLabel = p => NATIVE ? t.buy(p) : t.buyDemo(p);
-  $('#noAdsBtn').textContent = save.noAds ? t.noAdsOn : buyLabel(priceOf('noads', CFG.noAdsPrice));
-  $('#noAdsBtn').disabled = save.noAds;
-  $('#coins500Btn').textContent = buyLabel(priceOf('coins_500', CFG.coins500Price));
-  $('#coins1500Btn').textContent = buyLabel(priceOf('coins_1500', CFG.coins1500Price));
   $('#privacyBtn').hidden = !NATIVE_ADS();
   $('#privacyLink').href = PRIVACY_URL || '#';
   $('#privacyLink').parentElement.hidden = !PRIVACY_URL;
@@ -1773,21 +1777,28 @@ $('#soundOn').addEventListener('click', () => { save.sound = true; persist(); re
 $('#soundOff').addEventListener('click', () => { save.sound = false; persist(); renderSettings(); });
 $('#musicOn').addEventListener('click', () => { save.music = true; persist(); renderSettings(); sfx.unlock(); music.setEnabled(true); track('music_toggle', { on: 1 }); });
 $('#musicOff').addEventListener('click', () => { save.music = false; persist(); renderSettings(); music.setEnabled(false); track('music_toggle', { on: 0 }); });
-async function buy(id) {
+// pays for a product (App Store on iOS, instant demo purchase in the browser); granting is up to the caller (shopBuy)
+async function buy(id, place) {
   sfx.unlock();
-  if (NATIVE) { pauseClock(); const ok = await P.iap.buy(id); resumeClock(); if (!ok) { toast(tr().purchaseFailed); return false; } }
-  else track('purchase', { item_id: id, demo: 1 });
+  const price = iapPrice(id), ev = { product: id, item_id: id, price, place: place || 'shop', level: (S ? S.li : save.level) + 1 };
+  if (NATIVE) {
+    pauseClock(); const tx = await P.iap.buy(id); resumeClock();
+    if (!tx) { toast(tr().purchaseFailed); track('purchase_fail', ev); return false; }
+    const m = P.iap.meta(id);
+    track('purchase', Object.assign(ev, { transaction_id: tx.transactionId, value: m && m.value, currency: m && m.currency }));
+  } else {
+    const v = parseFloat(String(price).replace(/[^0-9.]/g, ''));
+    track('purchase', Object.assign(ev, { demo: 1, value: isNaN(v) ? undefined : v, currency: 'USD' }));
+  }
   sfx.coin(); buzz('success');
   return true;
 }
-function grantNoAds() { save.noAds = true; persist(); if (NATIVE_ADS()) P.ads.hideBanner(); renderSettings(); refreshCoins(); if (S) updateHud(); }
-$('#noAdsBtn').addEventListener('click', async () => { if (await buy('noads')) { grantNoAds(); toast(tr().purchased); } });
-$('#coins500Btn').addEventListener('click', async () => { if (await buy('coins_500')) { save.coins += 500; persist(); refreshCoins(); if (S) updateHud(); toast(tr().coinsAdded(500)); } });
-$('#coins1500Btn').addEventListener('click', async () => { if (await buy('coins_1500')) { save.coins += 1500; persist(); refreshCoins(); if (S) updateHud(); toast(tr().coinsAdded(1500)); } });
+function grantNoAds() { save.noAds = true; persist(); if (NATIVE_ADS()) { P.ads.hideBanner(); $('#banner').hidden = true; } refreshCoins(); if (S) updateHud(); }
+$('#settingsShopBtn').addEventListener('click', () => { sfx.unlock(); hide('#settingsOverlay'); resumeClock(); openShop('settings'); });
 $('#restoreBtn').addEventListener('click', async () => {
   if (!NATIVE) { toast(tr().nothingRestored); return; }
   const owned = await P.iap.restore();
-  if (owned.includes('noads')) { grantNoAds(); toast(tr().restored); } else toast(tr().nothingRestored);
+  if (owned.includes('noads')) { grantNoAds(); toast(tr().restored); if (!$('#shop').hidden) renderShop(); } else toast(tr().nothingRestored);
 });
 $('#privacyBtn').addEventListener('click', () => { if (NATIVE_ADS()) P.ads.privacyOptions(); });
 $('#lookBalls').addEventListener('click', async () => { save.variant = 'balls'; persist(); renderSettings(); if (S) { await animIdle(); if (S && !S.busy) { setSelected(null); render(); } } });
@@ -1797,7 +1808,7 @@ $('#jumpSel').addEventListener('change', e => { hide('#settingsOverlay'); playLe
 $('#resetBtn').addEventListener('click', () => {
   if (!resetArmed) { resetArmed = true; $('#resetBtn').textContent = tr().resetConfirm; return; }
   const lang = save.lang;
-  save = Object.assign({}, DEFAULT_SAVE, { stats: {}, lang }); ensureInv(); persist();
+  save = Object.assign({}, DEFAULT_SAVE, { stats: {}, lang }); ensureInv(); ensureShop(); persist();
   hide('#settingsOverlay'); playLevel(0); toast('✓');
 });
 $('#replayBtn').addEventListener('click', () => { hide('#endOverlay'); playLevel(0); });

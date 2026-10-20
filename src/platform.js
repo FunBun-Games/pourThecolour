@@ -173,16 +173,26 @@ const adsApi = {
 };
 
 /* ---------------- purchases ---------------- */
+// App Store Connect product IDs. What each one gives is decided by the game (SHOP_ITEMS in src/parts/shop.js).
 const PRODUCTS = {
   noads: { type: 'nonconsumable' },
-  coins_500: { type: 'consumable', coins: 500 },
-  coins_1500: { type: 'consumable', coins: 1500 },
+  coins_500: { type: 'consumable' },
+  coins_1500: { type: 'consumable' },
+  coins_5000: { type: 'consumable' },
+  starter_pack: { type: 'consumable' },      // once per player: the game hides it after the purchase
+  lab_pack: { type: 'consumable' },
+  scientist_pack: { type: 'consumable' },
+  professor_pack: { type: 'consumable' },
+  piggy_bank: { type: 'consumable' },
 };
-const iap = { prices: {}, owned: new Set(), ready: false };
+const iap = { prices: {}, meta: {}, owned: new Set(), ready: false };
 async function initIap() {
   if (!native) return;
   const res = await safe('products', () => NativePurchases.getProducts({ productIdentifiers: Object.keys(PRODUCTS), productType: PURCHASE_TYPE.INAPP }), null);
-  if (res && res.products) for (const p of res.products) iap.prices[p.identifier] = p.priceString;
+  if (res && res.products) for (const p of res.products) {
+    iap.prices[p.identifier] = p.priceString;
+    iap.meta[p.identifier] = { value: typeof p.price === 'number' ? p.price : undefined, currency: p.currencyCode };
+  }
   await refreshOwned();
   iap.ready = true;
 }
@@ -195,15 +205,15 @@ const iapApi = {
   get available() { return native; },
   price(id) { return iap.prices[id] || null; },
   owns(id) { return iap.owned.has(id); },
+  meta(id) { return iap.meta[id] || null; },
   products: PRODUCTS,
-  // resolves to true when the purchase went through
+  // resolves to the transaction when the purchase went through, otherwise null; the game logs the 'purchase' event
   async buy(id) {
-    if (!native) return false;
+    if (!native) return null;
     const tx = await safe('buy ' + id, () => NativePurchases.purchaseProduct({ productIdentifier: id, productType: PURCHASE_TYPE.INAPP, quantity: 1 }), null);
-    if (!tx) return false;
+    if (!tx) return null;
     if (PRODUCTS[id] && PRODUCTS[id].type === 'nonconsumable') iap.owned.add(id);
-    track('purchase', { item_id: id, transaction_id: tx.transactionId });
-    return true;
+    return tx;
   },
   async restore() {
     if (!native) return [];

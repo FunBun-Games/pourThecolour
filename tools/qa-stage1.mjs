@@ -40,7 +40,7 @@ const visible = (page, sel) => page.evaluate(s => { const el = document.querySel
 const play = async (page, li) => { await ev(page, li => playLevel(li), li); await page.waitForTimeout(li >= 19 ? 2200 : 700); };
 const goStuck = async page => {
   let ok = false;
-  for (let k = 0; k < 3 && !ok; k++) ok = await ev(page, () => testerStuck());
+  for (let k = 0; k < 12 && !ok; k++) ok = await ev(page, () => testerStuck());   // random play: with an extra tube a dead end can take many tries
   const t0 = Date.now();
   try { await page.waitForSelector('#stuckOverlay:not([hidden])', { timeout: 6000 }); } catch (e) { return false; }
   stuckWaits.push(Date.now() - t0);
@@ -90,8 +90,8 @@ for (const variant of ['balls', 'liquid']) {
     // free undos may be used up by now; an offer can appear — accept with an ad if so
     if (await visible(page, '#offerOverlay')) { await page.click('#offerAdBtn'); await page.waitForSelector('#adClose:not([hidden])', { timeout: 8000 }); await page.click('#adClose'); await page.waitForTimeout(500); }
     check('undo from the window takes a move back', (await ev(page, () => S.history.length)) === h0 - 1);
-    // not enough coins → coin pack in the window
-    await ev(page, () => onRestart()); await page.waitForTimeout(400);
+    // not enough coins → coin pack in the window (stage 2: the starter pack comes first; it is covered by qa-stage2)
+    await ev(page, () => { save.starterBought = 1; onRestart(); }); await page.waitForTimeout(400);
     await goStuck(page);
     check('no coins: coin button disabled, 500-coin pack shown', await ev(page, () => $('#stCoins').disabled) && await visible(page, '#stShop'));
     await shot(page, 'balls-5-no-coins-pack');

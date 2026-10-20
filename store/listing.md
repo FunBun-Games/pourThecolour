@@ -53,8 +53,30 @@ All content questions: None. Unrestricted web access: No. Gambling / contests: N
 | `noads` | Non-consumable | Remove ads | $4.99 |
 | `coins_500` | Consumable | 500 coins | $1.99 |
 | `coins_1500` | Consumable | 1500 coins | $4.99 |
+| `coins_5000` | Consumable | 5000 coins | $12.99 |
+| `starter_pack` | Consumable | Starter Pack | $1.99 |
+| `lab_pack` | Consumable | Lab Pack | $4.99 |
+| `scientist_pack` | Consumable | Scientist Pack | $9.99 |
+| `professor_pack` | Consumable | Professor Pack | $19.99 |
+| `piggy_bank` | Consumable | Piggy Bank | $4.99 |
 
-Each needs a display name, a short description and a review screenshot (the in-game shop in Settings).
+The starter pack is a consumable that the game offers only once per player (Apple has no "buy once" consumable; a non-consumable would be restorable over and over). Review screenshot for every item: the in-game shop (`qa-out/stage2/02-shop-top.png` / `03-shop-bottom.png` after `node tools/qa-stage2.mjs`).
+
+Display name (≤ 35 characters) and description (≤ 55 characters) for each localization:
+
+| Product ID | EN name | EN description | UK name | UK description |
+| --- | --- | --- | --- | --- |
+| `noads` | Remove Ads | No ads between levels and no banner. | Без реклами | Без реклами між рівнями і без банера. |
+| `coins_500` | 500 Coins | A small bag of coins for boosters. | 500 монет | Невеликий запас монет на бустери. |
+| `coins_1500` | 1,500 Coins | A pouch of coins for boosters. | 1500 монет | Мішечок монет на бустери. |
+| `coins_5000` | 5,000 Coins | A chest of coins — the best value. | 5000 монет | Скриня монет — найвигідніше. |
+| `starter_pack` | Starter Pack | 500 coins, 2 tubes, 3 undos, 2 × +30 s. | Стартовий набір | 500 монет, 2 пробірки, 3 скасування, 2 × +30 с. |
+| `lab_pack` | Lab Pack | 1,500 coins, 3 tubes, 5 undos, 3 × +30 s. | Набір лаборанта | 1500 монет, 3 пробірки, 5 скасувань, 3 × +30 с. |
+| `scientist_pack` | Scientist Pack | 4,000 coins, 8 tubes, 10 undos, 8 × +30 s. | Набір науковця | 4000 монет, 8 пробірок, 10 скасувань, 8 × +30 с. |
+| `professor_pack` | Professor Pack | 10,000 coins, 20 tubes, 25 undos, 20 × +30 s. | Набір професора | 10000 монет, 20 пробірок, 25 скасувань, 20 × +30 с. |
+| `piggy_bank` | Piggy Bank | Break it: get every coin your wins saved up. | Скарбничка | Розбийте: усі монети, що зібрали перемоги. |
+
+Note for review (piggy bank): every win adds coins to the piggy bank (10 + 2 per star, up to 3,000); from 1,000 coins it can be broken with this purchase and all collected coins go to the player. The amount is always shown before the purchase.
 
 ## App Privacy ("nutrition label") answers
 
@@ -71,7 +93,7 @@ Data not linked to you:
 Contact info, location, health, user content: not collected.
 
 ## Notes for App Review
-The game has no account or login. In-app purchases are in Settings → Shop; "Restore purchases" is below them. Ads use Google AdMob; the tracking prompt appears after level 2.
+The game has no account or login. In-app purchases are in the Shop tab at the bottom of the home screen (also: the "+" next to the coins, and Settings → Open the shop); "Restore purchases" is at the bottom of the shop. Ads use Google AdMob; the tracking prompt appears after level 2.
 
 ## Screenshots
 6.9" iPhone, 1320 × 2868 — see `store/screenshots/`.
