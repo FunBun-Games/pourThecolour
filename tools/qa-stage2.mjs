@@ -71,12 +71,12 @@ const winNow = async page => { await ev(page, () => { S.moves = LEVELS[S.li].min
 // ---------- 1. tab bar, shop tab, swipe ----------
 {
   const page = await open({ width: 393, height: 852 }, base());
-  check('home: tab bar visible with 5 slots', await visible(page, '#tabbar') && (await ev(page, () => $('#tabbar').querySelectorAll('.tab').length)) === 5);
+  check('home (map): tab bar visible with 5 slots', await visible(page, '#tabbar') && (await ev(page, () => $('#tabbar').querySelectorAll('.tab').length)) === 5);
   check('home: Home is the active tab, in the middle', await ev(page, () => { const t = [...$('#tabbar').querySelectorAll('.tab')]; return t[2].dataset.tab === 'home' && t[2].classList.contains('on'); }));
   const wide = await ev(page, () => { const t = [...$('#tabbar').querySelectorAll('.tab')].map(b => b.getBoundingClientRect()); return t[2].width > t[0].width * 1.3 && t[2].height > t[0].height; });
   check('active tab is wider and raised', wide);
   check('home: starter pack open on level 13 → red dot on Shop', await visible(page, '#tabbar .tab[data-tab="shop"] .dot'));
-  check('home: coins have a "+"', await visible(page, '#home .coins .plus'));
+  check('home: coins have a "+"', await visible(page, '#map .coins .plus'));
   await shot(page, '01-home-tabs');
   await page.click('#tabbar .tab[data-tab="collection"]'); await page.waitForTimeout(300);
   check('locked tab: "soon" toast, stays on Home', await ev(page, () => tabNow === 'home' && /скоро/.test(document.querySelector('.toast')?.textContent || '')));
@@ -92,12 +92,11 @@ const winNow = async page => { await ev(page, () => { S.moves = LEVELS[S.li].min
   await swipe(page, '#shop', -140); await page.waitForTimeout(500);
   check('swipe left on the shop → Home', await ev(page, () => tabNow === 'home' && $('#shop').hidden));
   check('tab_swipe logged', (await events(page, 'tab_swipe')).some(e => e.tab === 'home'));
-  await swipe(page, '#home', 140); await page.waitForTimeout(500);
+  await swipe(page, '#map', 140); await page.waitForTimeout(500);
   check('swipe right on Home → Shop', await ev(page, () => tabNow === 'shop' && !$('#shop').hidden));
   await swipe(page, '#shop', 140); await page.waitForTimeout(400);
   check('swipe right on the shop (leftmost) stays on the shop', await ev(page, () => tabNow === 'shop'));
   await page.click('#tabbar .tab[data-tab="home"]'); await page.waitForTimeout(500);
-  await page.click('#homeMap'); await page.waitForTimeout(400);
   check('map: tab bar visible, coins with "+"', await visible(page, '#tabbar') && await visible(page, '#map .coins .plus'));
   await shot(page, '04-map-tabs');
   await page.click('#map .coins'); await page.waitForTimeout(500);
@@ -262,7 +261,7 @@ for (const [vp, wrapper, name] of [[{ width: 320, height: 640 }, false, '320x640
   await shot(page, `${name}-1-popup`);
   await page.click('#shopPopLater'); await page.waitForTimeout(400);
   await shot(page, `${name}-2-home`);
-  const tb = await ev(page, () => { const bar = $('#tabbar').getBoundingClientRect(), cta = $('#homeMap').getBoundingClientRect(); return { overlap: cta.bottom > bar.top + 1, fit: bar.right <= innerWidth + 0.5 }; });
+  const tb = await ev(page, () => { const bar = $('#tabbar').getBoundingClientRect(), cta = $('#homePlay').getBoundingClientRect(); return { overlap: cta.bottom > bar.top + 1, fit: bar.right <= innerWidth + 0.5 }; });
   check(`${name}: home buttons above the tab bar`, !tb.overlap && tb.fit);
   const spt = await spill(page, '#tabbar'); check(`${name}: tabs fit`, !spt.length, spt.join(', '));
   await page.click('#tabbar .tab[data-tab="shop"]'); await page.waitForTimeout(500);

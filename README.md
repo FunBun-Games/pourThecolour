@@ -7,13 +7,14 @@
 | Шлях | Що це |
 | --- | --- |
 | `src/game.html` | Уся гра: розмітка, стилі, логіка. Один файл, без фреймворків |
-| `src/parts/` | Світи (фони, `biomes.js`), екрани: головний, мапа рівнів, картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`), магазин, нижня панель вкладок, скарбничка й стартовий набір (`shop.js`). Вставляються в гру під час збірки |
+| `src/parts/` | Світи (фони, `biomes.js`), екрани: мапа рівнів — вона ж вкладка «Дім» з плашкою світу й кнопкою «Грати» (етап 2.5), картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`), магазин, нижня панель вкладок, скарбничка й стартовий набір (`shop.js`). Вставляються в гру під час збірки |
 | `src/platform.js` | Шар платформи: реклама, покупки, аналітика, remote config, вібрація, збереження. У браузері вимкнений — гра показує демо-рекламу й демо-покупки |
 | `src/env.json` | Ідентифікатори реклами (зараз — тестові Google) і прапорець `debug` |
 | `levels/levels.json` | 500 рівнів. Кожен перевірений солвером; `minMoves` — точний мінімум ходів |
 | `tools/levels/` | Генератори рівнів і солвер |
 | `tools/build.mjs` | Збирає `www/` (застосунок) і `dist/prototype.html` (веб-прототип) |
 | `tools/check-levels.mjs` | Швидка перевірка рівнів перед збіркою |
+| `tools/qa-stage2_5.mjs` | Бот етапу 2.5: «Дім» = мапа (запуск, плашка, «Грати», повернення з рівня й після перемоги, мова, 320×568 / 320×640 / 393×740); скріншоти в `qa-out/stage2_5/` |
 | `tools/qa-stage2.mjs` | Бот етапу 2: вкладки й свайп, кожна покупка (демо), стартовий набір один раз, скарбничка, монети за рекламу з денним лімітом, «Відновити покупки», магазин поверх рівня, 320 px; скріншоти в `qa-out/stage2/` |
 | `tools/qa-stage1.mjs` | Бот Playwright етапу 1: глухий кут (кульки й рідина), подарунки, монети, нестача монет, реклама, запас, рестарт, солвер; скріншоти в `qa-out/stage1/` |
 | `ios/` | Xcode-проєкт (Swift Package Manager). Портретна орієнтація, лише iPhone |
@@ -31,6 +32,7 @@ npx cap sync ios               # скопіювати гру в iOS-проєкт
 npm test                       # перевірити рівні
 node tools/qa-stage1.mjs       # бот етапу 1 (після npm run build)
 node tools/qa-stage2.mjs       # бот етапу 2: магазин, вкладки, скарбничка
+node tools/qa-stage2_5.mjs     # бот етапу 2.5: «Дім» = мапа
 ```
 
 ## Віддалені налаштування (без оновлення застосунку)
@@ -44,7 +46,7 @@ node tools/qa-stage2.mjs       # бот етапу 2: магазин, вклад
 
 ## Події аналітики
 
-`level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`, `map_open`, `level_quit`, `pre_boost`, `music_toggle`,
+`level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`, `map_open` (level, from: launch / level / win / play / other), `level_quit`, `pre_boost`, `music_toggle`,
 `stuck_offer` (level, how: coins / ad / stock / gift / shop / undo / restart / dismiss, kind: dead / early, gift, extra), `booster_use` (type: undo / tube / time, method: coins / ad / stock / gift, level), `booster_gift` (type, level, count),
 `shop_open` (from: tab / swipe / coins / hud / settings, level), `iap_offer_shown` (product, place: shop / popup / stuck), `purchase` (product, price, place: shop / popup / stuck, level, value, currency, transaction_id; у браузері demo=1), `purchase_fail` (product, place), `piggy_fill` (stage: ready / full, amount, level), `piggy_break` (amount), `shop_ad_coins` (amount, left), `tab_open` / `tab_swipe` (tab). Властивість гравця: `look_variant` (balls / liquid).
 

@@ -1,12 +1,13 @@
-/* ---------- Screens: home, level map, pre-level card ----------
-   Flow: launch → home (a brand-new player goes straight into level 1) → Play → pre-level card → level.
+/* ---------- Screens: Home = the level map, pre-level card ----------
+   Stage 2.5 (founder, 20 Oct): no separate home screen. The Home tab is the map with a dock above the tab bar:
+   current world, its progress and "Play · level N" (red "Boss · level N" on a boss).
+   Flow: launch → map (a brand-new player goes straight into level 1) → Play or a node → pre-level card → level.
    After a win: map scrolls to the next node, it pops open, then the pre-level card for it appears.
    Pre-level bonuses cost 25% less than the same help during the level (CFG.preBoostDiscount). */
 let screenNow = 'game';
 function screen(name) {
   screenNow = name;
   $('#app').hidden = name !== 'game';
-  $('#home').hidden = name !== 'home';
   $('#map').hidden = name !== 'map';
   document.body.classList.toggle('ingame', name === 'game');
   if (name !== 'game') {
@@ -28,19 +29,18 @@ function setScene(li) {
   if (bg.dataset.w !== String(wd.w)) { bg.dataset.w = wd.w; bg.innerHTML = biomeArt.svg(li, 860, 5); }
 }
 
-/* ----- Home ----- */
-function showHome() {
+/* ----- Home: the dock on the map (world, progress, Play) ----- */
+function showHome(opts) { showMap(opts); }   // kept for older callers: Home is the map now
+function renderDock() {
   const t = tr(), li = nextLevel(), wd = worldOf(li), L = LEVELS[li];
-  screen('home');
-  setScene(li);
   $('#homeWorld').textContent = t.worldN(wd.w + 1, wd.name);
   const inWorld = li % 10;
   $('#homeProgressFill').style.width = (inWorld / 10 * 100) + '%';
-  $('#homeProgressText').textContent = t.worldProgress(inWorld, 10);
+  $('#homeProgressText').textContent = `${inWorld} / 10`;
+  $('#homeProgressText').setAttribute('aria-label', t.worldProgress(inWorld, 10));
   const play = $('#homePlay');
   play.classList.toggle('boss', !!L.hard);
   $('#homePlayLabel').textContent = save.level >= LEVELS.length ? t.allDone : (L.hard ? t.playBoss(li + 1) : t.playLevel(li + 1));
-  setTimeout(() => { if (screenNow === 'home') shopOffers(); }, 350);
 }
 
 /* ----- Map ----- */
@@ -98,15 +98,17 @@ function renderMap() {
 
 function showMap(opts = {}) {
   screen('map');
+  setScene(nextLevel());
   renderMap();
-  track('map_open', { level: nextLevel() + 1 });
+  renderDock();
+  track('map_open', { level: nextLevel() + 1, from: opts.from || 'other' });
   const cur = nextLevel();
   const node = $(`#mapWorlds .node[data-li="${cur}"]`);
   const sc = $('#mapScroll');
   if (node) {
     // centre the current node (instant), then let the fresh node pop
     const nr = node.getBoundingClientRect(), sr = sc.getBoundingClientRect();
-    sc.scrollTop += (nr.top - sr.top) - sr.height * 0.55;
+    sc.scrollTop += (nr.top - sr.top) - sr.height * 0.42;   // a little higher: the dock covers the bottom
     if (opts.fresh) { node.classList.add('fresh'); sfx.unlockSound(); }
   }
   // a one-time shop offer (starter pack, full piggy bank) goes first, then the pre-level card
@@ -191,5 +193,5 @@ function playLevel(li, boosts) {
 }
 function leaveLevel() {
   if (S && !S.won) track('level_quit', { level: S.li + 1, moves: S.moves, seconds: elapsed() });
-  showMap();
+  showMap({ from: 'level' });
 }

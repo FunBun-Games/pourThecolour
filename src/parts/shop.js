@@ -160,8 +160,17 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .tab .dot { position: absolute; top: 8px; left: 50%; margin-left: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); border: 2px solid var(--night); }
 .tab:active > svg:first-child { transform: scale(0.9); }
 .tab.on:active > svg:first-child { transform: translateY(-6px) scale(1.15); }
-body.tabs #home { padding-bottom: calc(var(--tab-h) + 18px + env(safe-area-inset-bottom, 0px)); }
-body.tabs #map .map-scroll { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); }
+#map .map-top { position: relative; z-index: 3; }
+.map-dock { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); z-index: 3; display: grid; gap: 10px; padding: 0 16px 6px; width: min(100%, 420px); margin-inline: auto; pointer-events: none; }
+.map-dock > * { pointer-events: auto; }
+.map-dock .world-card { width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; padding: 10px 14px; background: rgba(10, 12, 28, 0.72); }
+.map-dock .world-card .wname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-dock .world-card small { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.map-dock .world-card .bar { grid-column: 1 / -1; grid-row: 2; }
+.map-dock .btn.big { min-height: 58px; }
+body.tabs .map-dock { bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom, 0px)); }
+#map .map-scroll { padding-bottom: 170px; }
+body.tabs #map .map-scroll { padding-bottom: calc(var(--tab-h) + 170px + env(safe-area-inset-bottom, 0px)); }
 .coins.buyable { cursor: pointer; padding-right: 4px; }
 .coins .plus { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--good); color: #0b2a1a; font-weight: 900; font-size: 1rem; line-height: 1; font-style: normal; }
 .coins.buyable:active { transform: scale(0.96); }
@@ -223,7 +232,7 @@ body.tabs #shop .shop-scroll { padding-bottom: calc(var(--tab-h) + 24px + env(sa
 #stShop.st-starter { flex-direction: column; align-items: stretch; gap: 4px; text-align: center; }
 #stShop .st-starter-name { font-family: var(--font-display); }
 #stShop .st-starter-sub { font-size: 0.74rem; font-weight: 700; opacity: 0.85; white-space: normal; }
-@media (max-height: 700px) { body.tabs #home .deco-tubes { zoom: 0.7; } body.tabs #home .home-hero { gap: 14px; } }
+@media (max-height: 700px) { .map-dock .world-card { padding: 8px 12px; gap: 4px; } .map-dock .btn.big { min-height: 52px; } }
 .coin-tile .btn svg { width: 18px; height: 18px; }
 @media (max-width: 340px) { .offer { grid-template-columns: 56px minmax(0, 1fr); padding: 12px; } .offer .art { width: 56px; height: 56px; } .coin-grid { gap: 8px; } .coin-tile .btn { font-size: 0.85rem; } .tab > svg:first-child { width: 30px; height: 30px; } }
 </style>`);
@@ -281,7 +290,7 @@ $('#testerTools .btns').insertAdjacentHTML('beforebegin', `<div class="btns">
 document.querySelectorAll('.shop-scroll [data-art]').forEach(el => { el.innerHTML = artHtml(el.dataset.art, Number(el.dataset.n) || undefined); });
 
 // coins at the top: "+" opens the shop (home, map and during a level)
-document.querySelectorAll('#home .coins, #map .coins, .hud .coins').forEach(el => {
+document.querySelectorAll('#map .coins, .hud .coins').forEach(el => {
   el.classList.add('buyable');
   el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
   el.insertAdjacentHTML('beforeend', '<i class="plus" aria-hidden="true">+</i>');
@@ -399,7 +408,7 @@ function renderTabs() {
 // red dot on the Shop tab: something new to look at (the starter pack is open, or the piggy bank can be broken)
 const shopDot = () => (starterOpen() && !save.starterShopSeen) || (piggyReady() && !save.piggySeen);
 const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
-const homeEl = () => $(screenNow === 'map' ? '#map' : '#home');
+const homeEl = () => $('#map');
 function slide(inEl, outEl, dir, done) {
   if (reduceMotion() || !inEl.animate) { done && done(); return; }
   const opt = { duration: 300, easing: 'cubic-bezier(.22,.9,.3,1)' };
@@ -425,7 +434,7 @@ function setTab(name, how) {
     slide(homeEl(), sh, dir, () => { if (tabNow !== 'shop') sh.hidden = true; });
     if (reduceMotion() || !sh.animate) sh.hidden = true;
     shopMode = null;
-    if (screenNow === 'home') showHome(); else if (screenNow === 'map') renderMap();
+    if (screenNow === 'map') { renderMap(); renderDock(); }
   }
   renderTabs();
   track(how === 'swipe' ? 'tab_swipe' : 'tab_open', { tab: name });
@@ -489,7 +498,7 @@ function tabsOnScreen(name) {
     const i = list.indexOf(tabNow) + (dx < 0 ? 1 : -1);
     if (i >= 0 && i < list.length) { sfx.pick(4); setTab(list[i], 'swipe'); }
   };
-  for (const id of ['#home', '#map', '#shop']) { $(id).addEventListener('touchstart', start, { passive: true }); $(id).addEventListener('touchend', end, { passive: true }); }
+  for (const id of ['#map', '#shop']) { $(id).addEventListener('touchstart', start, { passive: true }); $(id).addEventListener('touchend', end, { passive: true }); }
 })();
 
 /* ----- piggy bank on the win screen ----- */

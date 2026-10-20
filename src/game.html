@@ -213,21 +213,14 @@ body.ingame .bg { --art-op: 0.42; }
 .topbar .grow { flex: 1; }
 .hud-left { gap: 8px; align-items: center; }
 
-.home-hero { flex: 1; display: grid; place-content: center; justify-items: center; gap: 22px; text-align: center; }
-.deco-tubes { display: flex; gap: 14px; align-items: flex-end; height: 150px; }
-.deco-tube { position: relative; width: 38px; height: 136px; border: 2px solid var(--glass-edge); border-top-color: transparent; border-radius: 6px 6px 20px 20px; background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.07)); animation: bob 3.2s ease-in-out infinite; }
-.deco-tube:nth-child(2) { animation-delay: -0.8s; transform: translateY(-10px); } .deco-tube:nth-child(3) { animation-delay: -1.6s; } .deco-tube:nth-child(4) { animation-delay: -2.4s; }
-.deco-tube i { position: absolute; left: 3px; width: 28px; height: 28px; border-radius: 50%; bottom: calc(5px + var(--k) * 30px); background: radial-gradient(circle at 33% 28%, rgba(255,255,255,0.85) 0 8%, rgba(255,255,255,0) 26%), radial-gradient(circle at 50% 55%, var(--c) 0 52%, color-mix(in srgb, var(--c) 62%, #000) 100%); }
-@keyframes bob { 50% { translate: 0 -8px; } }
-.logo { display: grid; gap: 6px; }
-.logo .l1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.1rem, 11vw, 3.1rem); line-height: 1; letter-spacing: -0.01em; background: linear-gradient(90deg, var(--c0), var(--c1), var(--c2), var(--c3), var(--c5), var(--c6)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.35)); }
-.logo .l2 { font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.55em; padding-left: 0.55em; color: var(--amber); }
+.logo { display: grid; justify-items: center; gap: 1px; min-width: 0; text-align: center; }
+.logo .l1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.05rem, 5.4vw, 1.35rem); line-height: 1; letter-spacing: -0.01em; white-space: nowrap; background: linear-gradient(90deg, var(--c0), var(--c1), var(--c2), var(--c3), var(--c5), var(--c6)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
+.logo .l2 { font-family: var(--font-display); font-weight: 700; font-size: 0.55rem; letter-spacing: 0.5em; padding-left: 0.5em; color: var(--amber); }
 .world-card { width: min(100%, 360px); display: grid; gap: 8px; padding: 14px 16px; border-radius: 18px; background: rgba(10, 12, 28, 0.55); border: 1px solid var(--panel-edge); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); text-align: left; }
 .world-card .wname { font-weight: 800; font-size: 0.95rem; }
 .bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--amber), #ffd98e); transition: width 600ms ease; }
 .world-card small { color: var(--ink-2); font-size: 0.8rem; font-weight: 600; }
-.home-cta { display: grid; gap: 10px; width: min(100%, 360px); margin-inline: auto; }
 .btn.big { min-height: 64px; font-size: 1.15rem; border-radius: 20px; box-shadow: 0 6px 0 rgba(0,0,0,0.3); }
 .btn.boss { background: linear-gradient(180deg, #ff5a6a, #c81b30); color: #fff; }
 .btn.dark { background: rgba(10, 12, 28, 0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
@@ -317,27 +310,13 @@ body.ingame .bg { --art-op: 0.42; }
 
 <div class="bg" id="bg" aria-hidden="true"></div>
 
-<section class="screen" id="home" hidden>
-  <div class="topbar"><div class="coins"><span class="coin" aria-hidden="true"></span><span data-coins>100</span></div><button class="icon-btn" id="homeSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button></div>
-  <div class="home-hero">
-    <div class="deco-tubes" aria-hidden="true">
-      <div class="deco-tube"><i style="--k:0;--c:var(--c0)"></i><i style="--k:1;--c:var(--c5)"></i><i style="--k:2;--c:var(--c0)"></i><i style="--k:3;--c:var(--c2)"></i></div>
-      <div class="deco-tube"><i style="--k:0;--c:var(--c3)"></i><i style="--k:1;--c:var(--c3)"></i><i style="--k:2;--c:var(--c6)"></i></div>
-      <div class="deco-tube"><i style="--k:0;--c:var(--c5)"></i><i style="--k:1;--c:var(--c2)"></i><i style="--k:2;--c:var(--c5)"></i><i style="--k:3;--c:var(--c7)"></i></div>
-      <div class="deco-tube"><i style="--k:0;--c:var(--c1)"></i><i style="--k:1;--c:var(--c1)"></i></div>
-    </div>
-    <h1 class="logo"><span class="l1">Colour Sort</span><span class="l2">PUZZLE</span></h1>
-    <div class="world-card"><span class="wname" id="homeWorld"></span><div class="bar"><i id="homeProgressFill"></i></div><small id="homeProgressText"></small></div>
-  </div>
-  <div class="home-cta">
-    <button class="btn primary big" id="homePlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg><span id="homePlayLabel"></span></button>
-    <button class="btn dark" id="homeMap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg><span data-t="map">Level map</span></button>
-  </div>
-</section>
-
 <section class="screen" id="map" hidden>
-  <div class="topbar"><button class="icon-btn" id="mapHome" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg></button><div class="coins"><span class="coin" aria-hidden="true"></span><span data-coins>100</span></div><span class="grow"></span><button class="icon-btn" id="mapSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button></div>
+  <div class="topbar map-top"><div class="coins"><span class="coin" aria-hidden="true"></span><span data-coins>100</span></div><h1 class="logo"><span class="l1">Colour Sort</span><span class="l2">PUZZLE</span></h1><button class="icon-btn" id="mapSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button></div>
   <div class="map-scroll" id="mapScroll"><div class="worlds" id="mapWorlds"></div></div>
+  <div class="map-dock" id="mapDock">
+    <div class="world-card"><span class="wname" id="homeWorld"></span><div class="bar"><i id="homeProgressFill"></i></div><small id="homeProgressText"></small></div>
+    <button class="btn primary big" id="homePlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg><span id="homePlayLabel"></span></button>
+  </div>
 </section>
 
 <div class="overlay pre" id="preOverlay" hidden>
@@ -1679,9 +1658,9 @@ async function afterWin(replay) {
   }
   if (NATIVE && finished === CFG.askTrackingAfter) await P.ads.askTracking();
   if (replay) { startLevel(S.li); return; }
-  if (finished >= LEVELS.length) { showMap(); showEnd(); return; }
-  if (frontier) showMap({ fresh: true, openLevel: finished });
-  else showMap();
+  if (finished >= LEVELS.length) { showMap({ from: 'win' }); showEnd(); return; }
+  if (frontier) showMap({ fresh: true, openLevel: finished, from: 'win' });
+  else showMap({ from: 'win' });
 }
 
 function showEnd() {
@@ -1739,8 +1718,7 @@ function applyLang() {
   document.querySelectorAll('[data-t]').forEach(el => { const v = t[el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
   $('#settingsBtn').setAttribute('aria-label', t.settings);
   if (S) updateHud();
-  if (screenNow === 'home') showHome();
-  else if (screenNow === 'map') { const sc = $('#mapScroll'), st = sc.scrollTop; renderMap(); sc.scrollTop = st; }
+  if (screenNow === 'map') { const sc = $('#mapScroll'), st = sc.scrollTop; renderMap(); renderDock(); renderTabs(); sc.scrollTop = st; }
 }
 
 /* ---------- Wiring ---------- */
@@ -1755,12 +1733,9 @@ $('#failRestartBtn').addEventListener('click', onFailRestart);
 $('#replayLevelBtn').addEventListener('click', onReplayLevel);
 const openSettings = () => { renderSettings(); show('#settingsOverlay'); pauseClock(); };
 $('#settingsBtn').addEventListener('click', openSettings);
-$('#homeSettings').addEventListener('click', openSettings);
 $('#mapSettings').addEventListener('click', openSettings);
 $('#hudMap').addEventListener('click', () => { sfx.unlock(); leaveLevel(); });
-$('#homePlay').addEventListener('click', () => { sfx.unlock(); if (save.level >= LEVELS.length) showMap(); else openPreLevel(nextLevel()); });
-$('#homeMap').addEventListener('click', () => { sfx.unlock(); showMap(); });
-$('#mapHome').addEventListener('click', () => { sfx.unlock(); showHome(); });
+$('#homePlay').addEventListener('click', () => { sfx.unlock(); if (save.level >= LEVELS.length) showMap({ from: 'play' }); else openPreLevel(nextLevel()); });
 $('#mapWorlds').addEventListener('click', e => {
   const n = e.target.closest('.node'); if (!n) return;
   sfx.unlock();
@@ -1832,7 +1807,7 @@ function start(data) {
   const snap = data && data.S;
   if (snap && LEVELS[snap.li]) { screen('game'); setScene(snap.li); startLevel(snap.li, snap); }
   else if (save.level === 0 && !Object.keys(save.stats).length) playLevel(0);   // brand-new player: straight into level 1
-  else showHome();
+  else showMap({ from: 'launch' });
 }
 window.claude?.hot?.snapshot?.(() => ({ S: S && { li: S.li, tubes: S.tubes, history: S.history, undos: S.undos, undosUsed: S.undosUsed, extra: S.extra, moves: S.moves, t0: S.t0, restarts: S.restarts, bonus: S.bonus, fails: S.fails, hidden: S.hidden } }));
 if (P) P.init(Object.keys(CFG)).then(() => P.ready).then(() => start({}));
