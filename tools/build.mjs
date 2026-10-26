@@ -21,7 +21,12 @@ const levels = JSON.parse(rd('levels/levels.json')).map((l) => {
 // /*@include parts/x.js*/ markers pull in source parts (kept as separate files to stay readable)
 const game = rd('src/game.html')
   .replace(/\/\*@include ([\w/.-]+)\*\//g, (_, p) => rd('src/' + p))
-  .replace('__LEVELS__', JSON.stringify(levels));
+  .replace('__LEVELS__', JSON.stringify(levels))
+  // __ART:path__ → an inline data URI of src/art/path (small WebP images; both the app and the one-file prototype)
+  .replace(/__ART:([\w/.-]+)__/g, (_, p) => {
+    const ext = path.extname(p).slice(1), mime = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' }[ext];
+    return `data:${mime};base64,${fs.readFileSync(path.join(root, 'src/art', p)).toString('base64')}`;
+  });
 
 // env: release builds switch debug tools off; ad unit ids come from src/env.json
 const env = JSON.parse(rd('src/env.json'));

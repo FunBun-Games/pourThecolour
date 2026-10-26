@@ -77,8 +77,12 @@ Object.assign(T.en, {
   tPiggy: 'Piggy bank +500', tShopReset: 'Shop again', tPiggyDone: 'Piggy bank: +500', tShopResetDone: 'Starter pack and ad coins reset'
 });
 
-/* ----- art: drawn in code until the ChatGPT icons (GPT-2) arrive; SHOP_ART maps an id to a PNG that replaces it ----- */
-const SHOP_ART = {};   // e.g. { starter_pack: 'art/shop/starter.png' }
+/* ----- art: ChatGPT icons where we have them (SHOP_ART), code-drawn SVG for the rest ----- */
+// GPT-2 icons (26 Oct): 224 px WebP, inlined by the build; the piggy bank keeps its code-drawn fill gauge on the win line
+const SHOP_ART = {
+  starter_pack: '__ART:shop/starter.webp__', lab_pack: '__ART:shop/lab.webp__', scientist_pack: '__ART:shop/scientist.webp__',
+  professor_pack: '__ART:shop/professor.webp__', piggy_bank: '__ART:shop/piggy.webp__'
+};
 const OUT = '#1d2230';
 const coinSvg = (x, y, r = 7) => `<g transform="translate(${x} ${y})"><circle r="${r}" fill="#ffbe55" stroke="${OUT}" stroke-width="2"/><circle r="${r * 0.55}" fill="none" stroke="#c98316" stroke-width="1.6"/><circle r="${r * 0.3}" cx="${-r * 0.35}" cy="${-r * 0.35}" fill="#fff3c8"/></g>`;
 const tubeSvg = (x, y, c, h = 26, rot = 0) => `<g transform="translate(${x} ${y}) rotate(${rot})"><rect x="-5" y="${-h}" width="10" height="${h}" rx="5" fill="rgba(236,240,255,.25)" stroke="${OUT}" stroke-width="2"/><rect x="-3.2" y="${-h * 0.55}" width="6.4" height="${h * 0.55 - 1.8}" rx="3.2" fill="${c}"/><rect x="-7" y="${-h - 2}" width="14" height="4" rx="2" fill="#dfe6ff" stroke="${OUT}" stroke-width="1.6"/></g>`;
@@ -222,7 +226,7 @@ body.tabs #shop .shop-scroll { padding-bottom: calc(var(--tab-h) + 24px + env(sa
 .shop-scroll .section-label { margin-top: 6px; }
 .win-piggy { justify-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 4px; border-radius: 999px; background: rgba(239, 119, 182, 0.14); border: 1px solid rgba(239, 119, 182, 0.45); font-size: 0.82rem; font-weight: 700; max-width: 100%; }
 .win-piggy .art { width: 26px; height: 26px; flex: none; }
-.win-piggy .art svg { width: 100%; height: 100%; display: block; }
+.win-piggy .art svg, .win-piggy .art img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .win-piggy span { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .sh-pop { position: relative; }
 .sh-pop .ribbon { position: static; justify-self: center; transform: rotate(-3deg); margin-bottom: -6px; }
