@@ -48,10 +48,16 @@ html[data-style="b"] .tube::before { height: 10px; top: -7px; left: -7px; right:
 html[data-style="b"] .tube.done { box-shadow: 0 0 0 2px rgba(29, 34, 48, 0.55), 0 0 26px -4px var(--good); }
 html[data-style="b"] .liquid .tube::after { height: 7px; background: linear-gradient(#ffffff, #b4c3e2); }
 html[data-style="b"] .ball { background: radial-gradient(circle at 34% 26%, #fff 0 9%, rgba(255,255,255,0.55) 15%, rgba(255,255,255,0) 30%), radial-gradient(circle at 50% 60%, var(--c) 0 50%, color-mix(in srgb, var(--c) 55%, #000) 100%); box-shadow: inset 0 -4px 6px rgba(0,0,0,0.25), 0 2px 3px rgba(0,0,0,0.3); }
-html[data-style="b"] .layer { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 72%, #000), var(--c) 28%, color-mix(in srgb, var(--c) 70%, #fff) 48%, var(--c) 66%, color-mix(in srgb, var(--c) 80%, #000)); box-shadow: inset 0 3px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.15); }
+html[data-style="b"] .layer { box-shadow: none; background:
+  linear-gradient(90deg, rgba(255,255,255,0) 14%, rgba(255,255,255,0.55) 20%, rgba(255,255,255,0.15) 27%, rgba(255,255,255,0) 32%),
+  linear-gradient(90deg, color-mix(in srgb, var(--c) 68%, #000) 0%, var(--c) 22%, color-mix(in srgb, var(--c) 88%, #fff) 45%, var(--c) 70%, color-mix(in srgb, var(--c) 70%, #000) 100%); }
+/* hidden balls / layers keep their "?" look (the themed rules above must not reveal the colour) */
+html[data-style="b"] .ball.hid { background: radial-gradient(circle at 34% 26%, rgba(255,255,255,0.45) 0 9%, rgba(255,255,255,0) 28%), radial-gradient(circle at 50% 60%, var(--hidden) 0 52%, var(--hidden-2) 100%); }
+html[data-style="b"] .layer.hid { background: repeating-linear-gradient(135deg, var(--hidden) 0 6px, var(--hidden-2) 6px 12px); }
+html[data-style="b"] .layer.surface::after { top: -3px; height: 7px; border-radius: 50%; opacity: 1; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 75%, #000), color-mix(in srgb, var(--c) 55%, #fff) 45%, color-mix(in srgb, var(--c) 80%, #000)); }
 /* HUD */
 html[data-style="b"] .icon-btn { background: linear-gradient(#4f93ff, #2459d8); border: 3px solid var(--out); border-radius: 14px; color: #fff; box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), 0 4px 0 var(--out); }
-html[data-style="b"] .icon-btn svg { stroke-width: 2.6; filter: drop-shadow(0 1.5px 0 rgba(29, 34, 48, 0.7)); }
+html[data-style="b"] .icon-btn svg { stroke-width: 2.6; }
 html[data-style="b"] .coins { background: linear-gradient(#24356e, #152150); border: 3px solid var(--out); color: #fff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.15), 0 3px 0 var(--out); }
 html[data-style="b"] .coins .plus { border: 2px solid var(--out); background: linear-gradient(#7ee35a, #33ad38); color: #fff; }
 html[data-style="b"] .level-name { justify-self: center; padding: 3px 16px; border-radius: 14px; border: 3px solid var(--out); background: linear-gradient(#26387a, #142152); box-shadow: 0 0 0 3px rgba(90, 175, 255, 0.55), 0 4px 0 var(--out); color: #fff; }
@@ -59,8 +65,14 @@ html[data-style="b"] .level-sub { justify-self: center; padding: 1px 10px; borde
 html[data-style="b"] .rival { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
 html[data-style="b"] .rival { background: rgba(14, 20, 46, 0.75); border: 2px solid var(--out); }
 /* boosters: chunky coloured tiles */
-html[data-style="b"] .tool { border: 3px solid var(--out); border-radius: 20px; color: #fff; font-weight: 800; text-shadow: 0 2px 0 rgba(29, 34, 48, 0.55); box-shadow: inset 0 4px 0 rgba(255,255,255,0.4), inset 0 -5px 0 rgba(0,0,0,0.18), 0 5px 0 var(--out); }
-html[data-style="b"] .tool svg { width: 30px; height: 30px; stroke-width: 2.6; filter: drop-shadow(0 2px 0 rgba(29, 34, 48, 0.6)); }
+html[data-style="b"] .tool { border: 3px solid var(--out); border-radius: 20px; color: #fff; font-weight: 800; text-shadow: none; box-shadow: inset 0 4px 0 rgba(255,255,255,0.4), inset 0 -5px 0 rgba(0,0,0,0.18), 0 5px 0 var(--out); }
+html[data-style="b"] .tool svg { width: 30px; height: 30px; stroke-width: 2.6; overflow: visible; }
+html[data-style="b"] .tool svg .under { stroke: var(--out); stroke-width: 6; }
+html[data-style="b"] .tool > span[data-t] { font-size: 0.82rem; font-weight: 900; letter-spacing: 0.01em; color: #fff; -webkit-text-stroke: 3.5px var(--out); paint-order: stroke fill; }
+html[data-style="b"] .tool .under { display: inline; }
+.tool svg .under { display: none; }
+html[data-style="b"] .icon-btn.b-ico { padding: 0; }
+html[data-style="b"] .icon-btn.b-ico svg { width: 32px; height: 32px; filter: none; }
 html[data-style="b"] #undoBtn { background: linear-gradient(#ffd34d, #f39a0b); }
 html[data-style="b"] #tubeBtn { background: linear-gradient(#56b6ff, #1f6fe0); }
 html[data-style="b"] #timeBtn { background: linear-gradient(#bb82ff, #7a3fe0); }
@@ -103,6 +115,39 @@ html[data-style="b"] .map-dock .bar > i { background: linear-gradient(#8de866, #
 html[data-style="b"] .toast { border: 3px solid var(--out); }
 </style>`);
 
+const B_ICONS = {
+  map: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 9l7-3 10 3 7-3v18l-7 3-10-3-7 3z" fill="#7fd36b" stroke="#1d2230" stroke-width="2" stroke-linejoin="round"/><path d="M11 6v18l10 3V9z" fill="#56b6ff" stroke="#1d2230" stroke-width="2" stroke-linejoin="round"/><path d="M7 20c3-1 4-5 8-5s5 3 9 1" fill="none" stroke="#fff" stroke-width="1.8" stroke-dasharray="2 2.4" stroke-linecap="round"/><path d="M23 3.5a4.5 4.5 0 0 1 4.5 4.5c0 3.4-4.5 7.5-4.5 7.5s-4.5-4.1-4.5-7.5A4.5 4.5 0 0 1 23 3.5z" fill="#ff4b5c" stroke="#1d2230" stroke-width="2" stroke-linejoin="round"/><circle cx="23" cy="8" r="1.7" fill="#fff"/></svg>`,
+  gear: (() => {
+    const n = 8, ro = 13, ri = 10, pts = [];
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2, w = Math.PI / n;
+      for (const [r, da] of [[ri, -w * 0.62], [ro, -w * 0.34], [ro, w * 0.34], [ri, w * 0.62]]) pts.push([16 + r * Math.cos(a + da), 16 + r * Math.sin(a + da)]);
+    }
+    const d = 'M' + pts.map(p => p.map(v => v.toFixed(2)).join(' ')).join('L') + 'Z';
+    return `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="${d}" fill="#fff" stroke="#1d2230" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="16" r="4.6" fill="#2459d8" stroke="#1d2230" stroke-width="2"/></svg>`;
+  })()
+};
+const HUD_ICON_BTNS = [['#hudMap', 'map'], ['#settingsBtn', 'gear'], ['#mapSettings', 'gear']];
+const hudIconOrig = {};
+function swapHudIcons(on) {
+  for (const [sel, kind] of HUD_ICON_BTNS) {
+    const b = $(sel); if (!b) continue;
+    if (!(sel in hudIconOrig)) hudIconOrig[sel] = b.innerHTML;
+    b.innerHTML = on ? B_ICONS[kind] : hudIconOrig[sel];
+    b.classList.toggle('b-ico', on);
+  }
+}
+// booster icons: a thicker navy copy of each line under the white one, so the icon reads crisply on any colour
+function underStrokeTools() {
+  document.querySelectorAll('.tool svg').forEach(svg => {
+    if (svg.querySelector('.under')) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'under');
+    [...svg.children].forEach(c => g.appendChild(c.cloneNode(true)));
+    svg.insertBefore(g, svg.firstChild);
+  });
+}
+
 function applyStyleTest(v) {
   if (!STYLE_OPTS.includes(v)) v = 'current';
   const [look, tone] = v.split('-');
@@ -113,6 +158,8 @@ function applyStyleTest(v) {
     root.style.setProperty('--lab', `url(${ART_LAB[tone]})`);
     root.style.setProperty('--world', `url(${ART_WORLD[tone]})`);
   }
+  swapHudIcons(look === 'b');
+  underStrokeTools();
   const sel = $('#styleSel'); if (sel) sel.value = v;
 }
 function setStyleTest(v, how) {

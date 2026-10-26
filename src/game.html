@@ -1165,12 +1165,19 @@ function makeBall(c, n) {
 const tubeEl = i => board.querySelector(`.tube[data-i="${i}"]`);
 // Which tube's home spot is under the finger. offsetLeft/Top ignore transforms, so a flask that is tilting
 // over another tube still answers at its own place and never blocks the tube under it.
+// offset of an element inside an ancestor, summed over any positioned elements in between (a themed row may be positioned)
+function offsetIn(el, anc) {
+  let x = 0, y = 0;
+  for (let e = el; e && e !== anc; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; if (e.offsetParent && !anc.contains(e.offsetParent)) break; }
+  return { x, y };
+}
 function tubeAt(x, y) {
   const sr = stage.getBoundingClientRect(), b = ballSize(), pad = Math.max(4, (parseFloat(board.style.getPropertyValue('--gap')) || 12) / 2);
   let best = null, bestD = Infinity;
   board.querySelectorAll('.tube').forEach(el => {
-    const l = sr.left + el.offsetLeft - pad, r = l + el.offsetWidth + pad * 2;
-    const t = sr.top + el.offsetTop - b * 1.2, btm = sr.top + el.offsetTop + el.offsetHeight + pad;
+    const o = offsetIn(el, stage);
+    const l = sr.left + o.x - pad, r = l + el.offsetWidth + pad * 2;
+    const t = sr.top + o.y - b * 1.2, btm = sr.top + o.y + el.offsetHeight + pad;
     if (x < l || x > r || y < t || y > btm) return;
     const d = Math.abs(x - (l + r) / 2);
     if (d < bestD) { bestD = d; best = Number(el.dataset.i); }
