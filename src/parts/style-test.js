@@ -98,13 +98,29 @@ html[data-style="b"] .tab.on > svg:first-child { transform: translateY(-4px) sca
 html[data-style="b"] .tab span { color: #fff; text-shadow: 0 2px 0 var(--out), 0 0 3px var(--out); }
 html[data-style="b"] .tab.soon { background: linear-gradient(#5d6c94, #3b4870); }
 /* map */
-html[data-style="b"] .world-bg { background: repeating-linear-gradient(0deg, var(--grid) 0 2px, transparent 2px 48px), repeating-linear-gradient(90deg, var(--grid) 0 2px, transparent 2px 48px), linear-gradient(var(--map-a), var(--map-b)) !important; filter: none !important; }
+/* map, interim until the drawn scenery (GPT-3 prompts) arrives: a bright nebula, stars, glowing lab props at the edges */
+html[data-style="b"] .world-bg { filter: none !important; background:
+  radial-gradient(60% 30% at 18% 22%, rgba(255, 92, 210, 0.55), transparent 70%),
+  radial-gradient(55% 28% at 85% 62%, rgba(80, 200, 255, 0.55), transparent 70%),
+  radial-gradient(70% 35% at 40% 90%, rgba(150, 90, 255, 0.6), transparent 70%),
+  radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 72% 8%, #fff 50%, transparent),
+  radial-gradient(2px 2px at 33% 46%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 88% 38%, #fff 50%, transparent),
+  radial-gradient(2px 2px at 58% 74%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 22% 66%, #fff 50%, transparent),
+  radial-gradient(1.5px 1.5px at 92% 88%, #fff 50%, transparent), radial-gradient(2px 2px at 48% 14%, #cfe9ff 50%, transparent),
+  linear-gradient(180deg, #3a2a8f, #23307e 45%, #1b4a9a) !important; background-size: 100% 100%, 100% 100%, 100% 100%, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 100% !important; }
+html[data-style="b"][data-tone="day"] .world-bg { background-color: #8f7fd6 !important; }
+.b-props { display: none; }
+html[data-style="b"] .b-props { display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+html[data-style="b"] .world .road { z-index: 1; }
 html[data-style="b"] .world-bg .biome-art { display: none; }
-html[data-style="b"] .road-base { stroke: #56658c; stroke-width: 30; stroke-dasharray: none; filter: drop-shadow(0 5px 0 rgba(10, 14, 30, 0.55)); }
-html[data-style="b"] .road-done { stroke: #7fdcff; stroke-width: 4; stroke-dasharray: 12 14; opacity: 1; filter: drop-shadow(0 0 4px #4fc3ff); }
-html[data-style="b"] .node { border: 3px solid var(--out); background: radial-gradient(circle at 50% 30%, #a5dcff, #3a8cf0 55%, #1f55c2); color: #fff; text-shadow: 0 2px 0 var(--out); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 4px #ffcd3c, 0 0 0 7px var(--out), 0 8px 0 4px var(--out); }
+.road-edge, .road-dash { display: none; }
+html[data-style="b"] .road-edge { display: inline; fill: none; stroke: #1d2230; stroke-width: 40; stroke-linecap: round; }
+html[data-style="b"] .road-base { stroke: #dfe7f7; stroke-width: 32; stroke-dasharray: none; filter: drop-shadow(0 6px 0 #7b88ab); }
+html[data-style="b"] .road-dash { display: inline; fill: none; stroke: rgba(80, 120, 200, 0.55); stroke-width: 4; stroke-dasharray: 10 12; stroke-linecap: round; }
+html[data-style="b"] .road-done { stroke: #36c6ff; stroke-width: 5; stroke-dasharray: 10 12; opacity: 1; filter: drop-shadow(0 0 5px #36c6ff); }
+html[data-style="b"] .node { border: 3px solid var(--out); background: radial-gradient(circle at 50% 28%, #d4f1ff, #3fb0ff 50%, #1d6fe0); color: #fff; text-shadow: 0 2px 0 var(--out); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 4px #ffcd3c, 0 0 0 7px var(--out), 0 8px 0 4px var(--out); }
 html[data-style="b"] .node.current { background: radial-gradient(circle at 50% 30%, #fff3b0, #ffcd3c 55%, #f0950c); color: var(--out); text-shadow: none; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.15), 0 0 0 4px #fff, 0 0 0 7px var(--out), 0 8px 0 4px var(--out), 0 0 30px 10px rgba(255, 205, 60, 0.5); }
-html[data-style="b"] .node.locked { background: radial-gradient(circle at 50% 30%, #7e8aa8, #4b5675 60%, #343d58); color: rgba(255,255,255,0.6); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 3px var(--out), 0 6px 0 3px var(--out); }
+html[data-style="b"] .node.locked { background: radial-gradient(circle at 50% 28%, #c2cbe2, #7f8db2 55%, #56628a); color: rgba(255,255,255,0.6); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 3px var(--out), 0 6px 0 3px var(--out); }
 html[data-style="b"] .node.boss { background: radial-gradient(circle at 50% 30%, #ffa0a8, #ef3045 55%, #a80f22); }
 html[data-style="b"] .node.boss.locked { filter: saturate(0.7) brightness(0.85); }
 html[data-style="b"] .node-stars i.on { background: #ffcd3c; filter: drop-shadow(0 1px 0 var(--out)); }
@@ -146,6 +162,46 @@ function underStrokeTools() {
     [...svg.children].forEach(c => g.appendChild(c.cloneNode(true)));
     svg.insertBefore(g, svg.firstChild);
   });
+}
+
+/* map decoration for B: road edge/dash layers and glowing lab props at the screen edges, per world section */
+function propTank(x, y, c, flip) {
+  const w = 74, h = 150;
+  return `<g transform="translate(${x} ${y}) scale(${flip ? -1 : 1} 1)">` +
+    `<rect x="-${w / 2}" y="-${h}" width="${w}" height="${h}" rx="12" fill="rgba(160,220,255,0.18)" stroke="#1d2230" stroke-width="3"/>` +
+    `<rect x="-${w / 2 - 6}" y="-${h * 0.62}" width="${w - 12}" height="${h * 0.62 - 6}" rx="8" fill="${c}" opacity="0.85"/>` +
+    `<circle cx="-12" cy="-${h * 0.35}" r="9" fill="#fff" opacity="0.55"/><circle cx="10" cy="-${h * 0.5}" r="6" fill="#fff" opacity="0.45"/><circle cx="4" cy="-${h * 0.2}" r="11" fill="${c}" stroke="#fff" stroke-opacity="0.6" stroke-width="2"/>` +
+    `<rect x="-${w / 2 + 6}" y="-${h + 14}" width="${w + 12}" height="18" rx="6" fill="#b9c6e2" stroke="#1d2230" stroke-width="3"/>` +
+    `<rect x="-${w / 2 + 6}" y="-6" width="${w + 12}" height="20" rx="6" fill="#8a97b8" stroke="#1d2230" stroke-width="3"/>` +
+    `<ellipse cx="0" cy="-${h / 2}" rx="${w}" ry="${h * 0.7}" fill="${c}" opacity="0.18"/></g>`;
+}
+function propPlanet(x, y, r, c, ring) {
+  return `<g transform="translate(${x} ${y})" opacity="0.9"><circle r="${r * 1.5}" fill="${c}" opacity="0.15"/><circle r="${r}" fill="${c}" stroke="#1d2230" stroke-width="3"/>` +
+    `<path d="M${-r * 0.6} ${-r * 0.2}a${r * 0.7} ${r * 0.5} 0 0 1 ${r * 1.1} -${r * 0.4}" stroke="#fff" stroke-opacity="0.45" stroke-width="${r * 0.18}" fill="none" stroke-linecap="round"/>` +
+    (ring ? `<ellipse rx="${r * 1.7}" ry="${r * 0.42}" fill="none" stroke="#ffd37a" stroke-width="${r * 0.14}" transform="rotate(-18)"/>` : '') + `</g>`;
+}
+const PROP_COLORS = ['#ff5fd2', '#36d1ff', '#7cff6b', '#ffb43a', '#b07cff'];
+function decorateMapB() {
+  document.querySelectorAll('#mapWorlds .world').forEach((w, k) => {
+    const road = w.querySelector('.road');
+    if (road && !road.querySelector('.road-edge')) {
+      const base = road.querySelector('.road-base');
+      const edge = base.cloneNode(); edge.setAttribute('class', 'road-edge'); road.insertBefore(edge, base);
+      const dash = base.cloneNode(); dash.setAttribute('class', 'road-dash'); base.after(dash);
+    }
+    if (w.querySelector('.b-props')) return;
+    const H = w.offsetHeight || 1000, W = 400, items = [];
+    for (let y = 200, j = 0; y < H; y += 230, j++) {
+      const left = (j + k) % 2 === 0, c = PROP_COLORS[(j + k * 2) % PROP_COLORS.length];
+      items.push(propTank(left ? 4 : W - 4, y, c, !left));
+      if (j % 2 === 1) items.push(propPlanet(left ? W - 70 : 70, y - 120, 22 + (j % 3) * 6, PROP_COLORS[(j + 3) % PROP_COLORS.length], j % 4 === 1));
+    }
+    w.querySelector('.world-bg').insertAdjacentHTML('afterend', `<svg class="b-props" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${items.join('')}</svg>`);
+  });
+}
+if (typeof renderMap === 'function') {
+  const renderMapPlain = renderMap;
+  renderMap = function (...a) { const r = renderMapPlain.apply(this, a); decorateMapB(); return r; };
 }
 
 function applyStyleTest(v) {
