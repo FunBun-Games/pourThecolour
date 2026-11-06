@@ -32,7 +32,12 @@ const game = rd('src/game.html')
       art[n] = { aspect: m.aspect, overlap: m.overlap, pads: m.pads };
       src[n] = 'data:image/webp;base64,' + fs.readFileSync(path.join(dir, n + '.webp')).toString('base64');
     }
-    return JSON.stringify({ list, art, src });
+    // seam patches (tools/map-art.py build_seams): a real road stretch laid over each of the 20 seams
+    const seams = JSON.parse(fs.readFileSync(path.join(dir, 'seams.json'), 'utf8')).map(sm => {
+      if (sm.patch) sm.data = 'data:image/webp;base64,' + fs.readFileSync(path.join(dir, 'seams', sm.patch)).toString('base64');
+      return sm;
+    });
+    return JSON.stringify({ list, art, src, seams });
   })
   // __ART:path__ → an inline data URI of src/art/path (small WebP images; both the app and the one-file prototype)
   .replace(/__ART:([\w/.-]+)__/g, (_, p) => {

@@ -23,7 +23,9 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
   background: linear-gradient(rgba(10, 14, 40, 0.88), rgba(10, 14, 40, 0.55) 55%, transparent); }
 #map.dm-on .map-scroll { position: absolute; inset: 0; margin: 0; padding: 0 !important; z-index: 0; background: #0d1433; }
 #mapWorlds.drawn { display: flex; flex-direction: column-reverse; position: relative; z-index: 0; --u: 0.384; --cw: 393px; }
-.dm-slot { position: relative; flex: none; width: 100%; height: calc(var(--u) * var(--h) * 1px); pointer-events: none; content-visibility: auto; contain-intrinsic-size: auto calc(var(--u) * var(--h) * 1px); }
+.dm-slot { position: relative; flex: none; width: 100%; height: calc(var(--u) * var(--h) * 1px); pointer-events: none; }
+/* a real road stretch laid over the seam above this picture (tools/map-art.py: build_seams) */
+.dm-patch { position: absolute; z-index: 1; background-size: 100% 100%; background-repeat: no-repeat; pointer-events: none; }
 .dm-slot + .dm-slot { margin-bottom: calc(var(--u) * var(--ov) * -1px); }
 .dm-col { position: absolute; top: 0; bottom: 0; left: calc(50% - var(--cw) / 2); width: var(--cw); }
 .dm-art, .dm-fill { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
@@ -82,7 +84,7 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-sign.world-sign { z-index: 4; pointer-events: none; }
 /* gate between worlds: a dark band across the seam (over both pictures and the side fill, under the marks) */
 .dm-gate { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
-  top: calc(var(--u) * (var(--ov) * 0.5 - 75) * 1px); height: calc(var(--u) * 150px);
+  top: calc(var(--u) * (var(--ovt) * 0.5 - 75) * 1px); height: calc(var(--u) * 150px);
   background: linear-gradient(180deg, transparent, rgba(3, 5, 20, 0.75) 30%, rgba(3, 5, 20, 0.92) 50%, rgba(3, 5, 20, 0.75) 70%, transparent); }
 /* the upper picture's half: the same band, measured from its bottom edge */
 .dm-gate.up { top: auto; bottom: calc(var(--u) * (var(--ov) * 0.5 - 75) * 1px); }
@@ -103,7 +105,7 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-slot.locked .dm-fill { filter: blur(14px) brightness(0.35) saturate(0.6); }
 .dm-end.head.locked::after { content: ""; position: absolute; inset: 0; background: rgba(4, 6, 24, 0.96); }
 .dm-sign.bottom { bottom: calc(var(--u) * 26px); }
-.dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ov) * 0.5px); transform: translateY(-50%); z-index: 4; }
+.dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ovt) * 0.5px); transform: translateY(-50%); z-index: 4; }
 .dm-sign.top { max-width: 62%; box-sizing: border-box; padding: 3px 10px 3px 4px; gap: 6px; font-size: 0.74rem; border-width: 2px; }
 .dm-sign.top .world-num { padding: 2px 7px; font-size: 0.64rem; }
 .dm-sign.top .world-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -162,9 +164,14 @@ function renderMapDrawn() {
   let html = '';
   for (let k = 0; k < count; k++) {
     const { name, flip } = dmArtFor(k), A = MAPART.art[name];
-    const h = Math.round(DM_W * A.aspect), ov = Math.round(h * A.overlap);
+    const h = Math.round(DM_W * A.aspect);
+    // overlap with the picture below (--ov: this picture's margin) and above (--ovt: its fading top band), per seam
+    const SM = MAPART.seams || [], seamBelow = k > 0 ? SM[(k - 1) % 20] : null, seamAbove = SM[k % 20];
+    const ov = seamBelow ? seamBelow.ov : 0, ovt = seamAbove ? seamAbove.ov : Math.round(h * A.overlap);
+    const patch = seamAbove && seamAbove.data && k < count - 1 && k + 1 !== lockedK
+      ? `<div class="dm-patch" style="left:${(seamAbove.x / DM_W * 100).toFixed(3)}%;width:${(seamAbove.w / DM_W * 100).toFixed(3)}%;top:calc(var(--u) * ${seamAbove.y}px);height:calc(var(--u) * ${seamAbove.h}px);background-image:url(${seamAbove.data})"></div>` : '';
     const fade = k < count - 1 ? ' fade' : '';
-    let inner = `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div>`;
+    let inner = `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div>` + patch;
     const fill = `<div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>`;
     // the seam into the next world is darkened (a gate between worlds)
     // (each picture paints only inside itself, so both pictures at the seam carry their half of the gate)
@@ -174,7 +181,7 @@ function renderMapDrawn() {
       const w = k / 2;
       inner += `<div class="dm-fog"><div class="dm-fog-card"><span class="dm-fog-lock">${ICON_LOCK}</span>` +
         `<b>${t.worldShort(w + 1)} · ${worldOf(w * 10).name}</b><small>${t.worldLockedHint(w)}</small></div></div>`;
-      html += `<div class="dm-slot locked" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${count - k}">${fill}${gate}<div class="dm-col">${inner}</div></div>`;
+      html += `<div class="dm-slot locked" data-slot="${k}" style="--h:${h};--ov:${ov};--ovt:${ovt};--ovp:${(ovt / h * 100).toFixed(2)}%;z-index:${count - k}">${fill}<div class="dm-col">${inner}</div>${gate}</div>`;
       continue;
     }
     A.pads.forEach((p, j) => {
@@ -213,7 +220,7 @@ function renderMapDrawn() {
       inner += `<div class="world-sign dm-sign ${where}${where === 'top' ? ' ' + side : ''}"><span class="world-num">${t.worldShort(signW + 1)}</span><span class="world-name">${worldOf(signW * 10).name}</span></div>`;
     }
     // lower pictures sit above upper ones: each one's faded top band lies over the picture above it
-    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${count - k}">${fill}${gate}<div class="dm-col">${inner}</div></div>`;
+    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovt:${ovt};--ovp:${(ovt / h * 100).toFixed(2)}%;z-index:${count - k}">${fill}<div class="dm-col">${inner}</div>${gate}</div>`;
   }
   html = dmEnd(0, 'foot') + html + dmEnd(count - 1, lockedK >= 0 ? 'head locked' : 'head');
   const box = $('#mapWorlds');

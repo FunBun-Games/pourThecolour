@@ -455,6 +455,7 @@ def process(prep, debug):
     print(f"{name}: cut {cut['top']}/{cut['bottom']} → h {H}; seam road top {fmt(at)} bottom {fmt(ab)}; "
           f"platform steps {' '.join(f'{v:.0f}' for v in sp)}, ends {pads[4]['cy']:.0f}/{H - pads[0]['cy']:.0f}; webp {kb:.0f} KB q{q}")
     if debug: draw_debug(bent, pads, name)
+    prep['final'] = np.asarray(bent).astype(np.float32); prep['pads'] = pads
     H = H0
     return meta
 
@@ -496,6 +497,115 @@ def draw_debug(img, pads, name):
     d.resize((W // 2, H // 2)).save(os.path.join(DBG, name + '-debug.png'))
 
 
+# ---------- seam patches: a real road stretch laid over every seam ----------
+# The pictures follow each other in a fixed order (world w = theme w % 10, the second picture of a world mirrored),
+# so there are only 20 different seams. For each, a real, untouched stretch of road between two platforms is cut
+# out of one of the two pictures — a right→left stretch like the one the seam needs — and the game lays it over
+# the seam. Nothing is painted or blended on the road: the seam of the pictures lies under that stretch. Only the
+# road itself (around its glowing dash line) is cut out, without the platforms: the platforms stay the pictures' own.
+# The overlap of the two pictures is set so the platforms across the seam are exactly one stretch apart.
+PATCH_HW = 118          # how far from the dash line the cut-out reaches (the road with its rims and outline)
+PATCH_FEATHER = 6
+PAD_CLEAR = 6           # rows/cols kept clear around the platforms (the platforms stay the pictures' own)
+PATCH_DIR = os.path.join(OUT, 'seams')
+
+
+def art_for(k, names):
+    w, part, flip = k // 2, ('b' if k % 2 else 'a'), k % 2 == 1
+    theme = w % 10
+    own, other = f'world{theme + 1}-{part}', f'world{theme + 1}-{"a" if part == "b" else "b"}'
+    if own in names: return own, flip
+    if other in names: return other, flip
+    L = sorted(names)
+    return L[k % len(L)], flip
+
+
+def disp(p, flip):
+    """A platform in display coordinates (the picture possibly mirrored)."""
+    return {'x': (W - p['cx']) if flip else p['cx'], 'y': p['cy'], 'box': p['box'], 'cap': p['cap'],
+            'bx0': (W - p['box'][0] - p['box'][2]) if flip else p['box'][0]}
+
+
+def road_mask(rgb, a, b):
+    """Mask of the road stretch between platforms a (lower) and b (upper) in a picture: pixels near its dash line,
+    between the two platforms, not on the platforms."""
+    hh = rgb.shape[0]
+    y0, y1 = int(b['y'] - 70), int(a['y'] + 70)
+    x0, x1 = int(min(a['x'], b['x']) - 40), int(max(a['x'], b['x']) + 40)
+    y0, y1 = max(0, y0), min(hh, y1)
+    sub = rgb[y0:y1]
+    dash = (sub[..., 1] > 185) & (sub[..., 2] > 220) & (sub[..., 0] < 200)
+    dash[:, :max(0, x0)] = False; dash[:, min(W, x1):] = False
+    lab, n = nd.label(nd.binary_dilation(dash, iterations=2))
+    if n == 0: return None
+    sizes = nd.sum(dash, lab, range(1, n + 1))
+    keep = np.isin(lab, [i + 1 for i, v in enumerate(sizes) if v >= 25])
+    dist = nd.distance_transform_edt(~keep)
+    m = np.clip((PATCH_HW - dist) / PATCH_FEATHER, 0, 1)
+    # only the stretch between the two platforms: from the upper one's centre row to the lower one's (softly),
+    # so the roads leaving the platforms the other way stay the pictures' own
+    yy = np.arange(m.shape[0])[:, None] + y0
+    m = m * np.clip((yy - (b['y'] - 4)) / 22, 0, 1) * np.clip(((a['y'] + 4) - yy) / 22, 0, 1)
+    # not on the platforms (their button, ring and the bit of road that enters them stay the picture's own)
+    for p in (a, b):
+        bx, by, bw, bh = p['box']
+        X0 = int(p['bx0']) - PAD_CLEAR; Y0 = int(by) - y0 - PAD_CLEAR
+        X1 = int(p['bx0'] + bw) + PAD_CLEAR; Y1 = int(by + bh) - y0 + PAD_CLEAR
+        yy, xx = np.mgrid[0:m.shape[0], 0:W]
+        cx, cy, rx, ry = (X0 + X1) / 2, (Y0 + Y1) / 2, (X1 - X0) / 2, (Y1 - Y0) / 2
+        inside = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2
+        m = m * np.clip((inside - 1) * 4, 0, 1)
+    return m, y0
+
+
+def build_seams(preps):
+    names = {p['name']: p for p in preps if 'final' in p}
+    os.makedirs(PATCH_DIR, exist_ok=True)
+    seams = []
+    for k in range(20):
+        ln, lf = art_for(k, names); un, uf = art_for(k + 1, names)
+        L, U = names[ln], names[un]
+        Lp = [disp(p, lf) for p in L['pads']]; Up = [disp(p, uf) for p in U['pads']]
+        P, Q = Lp[4], Up[0]
+        hU = U['final'].shape[0]
+        # candidate real stretches going the same way (from P's side up to Q's side)
+        cands = [(L, lf, Lp[2], Lp[3]), (L, lf, Lp[0], Lp[1]), (U, uf, Up[1], Up[2])]
+        dxt = Q['x'] - P['x']
+        best = None
+        for src, sf, a, b in cands:
+            dxs = b['x'] - a['x']
+            if dxs * dxt <= 0: continue
+            err = abs(dxs - dxt)
+            if best is None or err < best[0]: best = (err, src, sf, a, b)
+        _, src, sf, a, b = best
+        img = src['final'][:, ::-1] if sf else src['final']
+        mk = road_mask(img, a, b)
+        step = a['y'] - b['y']
+        ov = P['y'] + (hU - Q['y']) - step
+        entry = {'ov': round(float(ov), 1), 'step': round(float(step), 1), 'src': src['name'], 'scale': 1.0}
+        if mk is not None:
+            m, y0 = mk
+            sx = (Q['x'] - P['x']) / (b['x'] - a['x'])
+            ys, xs = np.nonzero(m > 0.01)
+            bx0, bx1, by0, by1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
+            crop = img[y0 + by0:y0 + by1, bx0:bx1]
+            alpha = m[by0:by1, bx0:bx1]
+            # fit the stretch exactly between P and Q: scale across (a few %), place a on P
+            new_w = max(1, int(round((bx1 - bx0) * sx)))
+            rgba = np.dstack([crop, alpha * 255]).clip(0, 255).astype(np.uint8)
+            im = Image.fromarray(rgba, 'RGBA').resize((new_w, by1 - by0), Image.LANCZOS)
+            fn = f'seam{k:02d}.webp'
+            im.save(os.path.join(PATCH_DIR, fn), 'WEBP', quality=80, method=6)
+            left = P['x'] + (bx0 - a['x']) * sx
+            top = P['y'] + (y0 + by0 - a['y'])                  # in the lower picture, from its top (can be < 0)
+            entry.update({'scale': round(float(sx), 3), 'patch': fn, 'x': round(float(left), 1), 'y': round(float(top), 1),
+                          'w': new_w, 'h': int(by1 - by0), 'kb': round(os.path.getsize(os.path.join(PATCH_DIR, fn)) / 1024, 1)})
+        seams.append(entry)
+        print(f"seam {k:2d}: {ln}{'~' if lf else ''} → {un}{'~' if uf else ''}: stretch from {src['name']} "
+              f"step {entry['step']}, overlap {entry['ov']}, scale {entry['scale']}" + (f", patch {entry['w']}×{entry['h']} {entry['kb']} KB" if 'patch' in entry else ' — NO PATCH'))
+    with open(os.path.join(OUT, 'seams.json'), 'w') as f: json.dump(seams, f, indent=1)
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     debug = '--debug' in sys.argv
@@ -516,7 +626,8 @@ def main():
     if failed: print('not prepared (the game keeps their earlier version if any):', ', '.join(failed))
     # the game's road, bottom to top: world N uses <N>-a then <N>-b; a missing picture repeats the pilot,
     # mirrored on every other slot so neighbours never look the same (see screens: MAP_ART)
-    index = sorted(set([m['name'] for m in metas]) | set(f[:-5] for f in os.listdir(OUT) if f.endswith('.json') and f != 'index.json'))
+    if not args: build_seams(preps)
+    index = sorted(set([m['name'] for m in metas]) | set(f[:-5] for f in os.listdir(OUT) if f.endswith('.json') and f not in ('index.json', 'seams.json')))
     with open(os.path.join(OUT, 'index.json'), 'w') as f: json.dump(index, f)
     if failed: sys.exit(1)
 
