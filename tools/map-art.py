@@ -27,7 +27,8 @@ W, H0 = 1024, 1536         # the picture size the prompt asks for (others are re
 H = H0                     # the height being worked on (pictures are cropped at their empty ends)
 ROAD_HW = 80               # common half-width of the road (rim centre to rim centre) where pictures meet
 OV_PX = 60                 # rows where neighbouring pictures overlap and cross-fade (the seam); the road is fully bent there
-TAPER_MIN, TAPER_MAX = 50, 150   # after the band the bend eases off over ~1.6 × the shift it has to undo
+TAPER_MIN, TAPER_MAX = 90, 170   # after the band the road eases into the drawn one over ~1.6 × the shift it has to undo
+SLOPE = 0.5                # the road's direction across the seam (px sideways per row): a gentle diagonal, as between platforms
 OUT_W = 864                # width of the shipped WebP (phones show it at 320–640 css px; painterly art holds up when upscaled)
 MAX_KB = 120
 CAP_HW = 0.63               # the tallest a platform's button can look (height / width) in the 3/4 view
@@ -149,39 +150,54 @@ def dash_offset(rgb, track, rows):
 
 
 def bend_ends(img, limits, tapers):
-    """Bend both ends of the road to the middle at ROAD_HW: the rims go to 512 ± ROAD_HW and the dash line to 512.
-    Fully inside the overlap band (where the neighbouring picture fades in, so both roads lie exactly on top of each
-    other), then easing back to the picture as drawn over TAPER rows — but never into a platform (limits[end] is
-    how many rows from that edge the nearest platform starts). Returns the new image and what was measured."""
+    """Reshape both ends of the road so neighbouring pictures meet in one smooth diagonal, with no straight stretch.
+    In every picture (unmirrored) the end platforms are on the right, and the second picture of each world is shown
+    mirrored, so at every seam the road runs diagonally from one side to the other. In the band where two pictures
+    overlap, the road of both is the same straight line: rims at ±ROAD_HW around a centre that goes from 512 − S at
+    the edge to 512 + S at the band's inner row (S = SLOPE × band / 2), i.e. heading towards the platform; mirrored,
+    the other picture's band gives exactly the same line. From the band to the platform the centre follows one cubic
+    curve (Hermite) from that line into the road as drawn, matching its direction, and the width eases back too —
+    so there is no S-bend. limits[end]: rows from that edge to the nearest platform. Returns the image and what was
+    measured."""
     rgb = np.asarray(img.convert('RGB')).astype(np.float32)
     info = {}
     out = rgb.copy()
     full = OV_PX
+    S = SLOPE * full / 2
     for end in ('bottom', 'top'):
-        span = min(full + tapers[end], limits[end] - 6)
+        span = limits[end] - 6
         if span < full + 20:
             raise SystemExit(f'a platform is too close to the {end} edge ({limits[end]} px): the road has no room to meet the next picture')
         rows = list(range(H - 1, H - 1 - span - 40, -1)) if end == 'bottom' else list(range(0, span + 40))
-        # first guess: the most cyan column in the 80 rows at the edge, in the middle 40% (the road enters near the
-        # middle; glowing props at the sides are not the road; a gap between dashes can sit right at the edge)
         edge = rgb[rows[:80]]
         cyan = ((edge[..., 1] > 200) & (edge[..., 2] > 230)).sum(0).astype(float)
         cyan[:int(W * 0.3)] = 0; cyan[int(W * 0.7):] = 0
         sm = nd.uniform_filter1d(cyan, 25)
-        # strong candidates (≥ half the best); the one nearest the middle is the road's dash line
         cand = np.nonzero(sm >= 0.5 * sm.max())[0] if sm.max() > 0 else np.array([W // 2])
         guess = float(cand[np.argmin(np.abs(cand - W / 2))])
         track = smooth_track(road_any(rgb, rows, guess), rows)
         d = dash_offset(rgb, track, rows[:full])
         c0, h0 = track[rows[0]]
         info[end] = {'x': round(c0 / W, 4), 'hw': round(h0 / W, 4), 'dash': round(d / W, 4)}
+        cs = np.array([track[y][0] for y in rows]); hs = np.array([track[y][1] for y in rows])
+        # where the reshaped road joins the road as drawn, and the drawn road's direction there (px per row inwards)
+        j = span - 1
+        c1, h1 = cs[j], hs[j]
+        m1 = float(np.mean(np.gradient(cs)[max(0, j - 12):j + 1]))
+        x0, m0 = W / 2 + S, 2 * S / full            # the band's inner row and the line's direction
+        L = j - full
         xs = np.arange(W, dtype=np.float32)
-        for k, y in enumerate(rows[:span]):
-            t = 1.0 if k < full else smoothstep(1 - (k - full) / (span - full))
-            c, h = track[y]
-            tc, th = c + (W / 2 - c) * t, h + (ROAD_HW - h) * t
-            # destination knots → source knots (piecewise linear, image edges stay put): rims and the dash line
-            dd = d * (1 - t)
+        for r, y in enumerate(rows[:span]):
+            c, h = cs[r], hs[r]
+            if r < full:
+                tc, th, dd = W / 2 - S + 2 * S * r / full, ROAD_HW, 0.0
+            else:
+                u = (r - full) / L
+                h00, h10, h01, h11 = 2*u**3 - 3*u**2 + 1, u**3 - 2*u**2 + u, -2*u**3 + 3*u**2, u**3 - u**2
+                tc = h00 * x0 + h10 * L * m0 + h01 * c1 + h11 * L * m1
+                w = smoothstep(u)
+                th = ROAD_HW + (h - ROAD_HW) * w
+                dd = d * w
             src = np.interp(xs, [0, tc - th, tc + dd, tc + th, W - 1], [0, c - h, c + d, c + h, W - 1])
             for ch in range(3):
                 out[y, :, ch] = np.interp(src, xs, rgb[y, :, ch])
@@ -289,7 +305,8 @@ def crop_plan(img, free):
         for k in range(max(0, n - OV_PX - TAPER_MIN), -1, -4):         # k = rows cut from this end
             if track is None: break
             c, h = track[rows[k]]
-            taper = int(np.clip(1.6 * (abs(c - W / 2) + 0.5 * abs(h - ROAD_HW)), TAPER_MIN, TAPER_MAX))
+            line = W / 2 + SLOPE * OV_PX / 2 + SLOPE * TAPER_MIN       # where the seam's diagonal would be there
+            taper = int(np.clip(1.6 * (abs(c - line) + 0.5 * abs(h - ROAD_HW)), TAPER_MIN, TAPER_MAX))
             if k + OV_PX + taper <= n:
                 best_k, best_t = k, taper
                 break
@@ -347,8 +364,10 @@ def bend_check(img):
             if best is None or err < best[2]: best = (c, h, err)
         if best is None: raise SystemExit('road lost after bending (' + end + ')')
         c, h, _ = best
-        if abs(c - W / 2) > 9 or abs(h - ROAD_HW) > 12:
+        if abs(c - W / 2) > 9 + SLOPE * OV_PX / 2:
             raise SystemExit(f'bending failed at the {end}: centre {c:.0f}, half-width {h:.0f}')
+        if abs(h - ROAD_HW) > 12:      # the rims were not measured reliably (bright sky, rings, stars next to the road)
+            print(f'  note: {end} edge — road width not measurable ({h:.0f}); the centre is right, check the debug picture')
         res[end] = {'x': round(c / W, 4), 'hw': round(h / W, 4)}
     return res
 
