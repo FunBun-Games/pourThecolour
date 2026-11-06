@@ -10,3 +10,4 @@ ios/DerivedData/
 *.ipa
 .DS_Store
 qa-out/
+__pycache__/

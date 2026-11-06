@@ -22,6 +22,18 @@ const levels = JSON.parse(rd('levels/levels.json')).map((l) => {
 const game = rd('src/game.html')
   .replace(/\/\*@include ([\w/.-]+)\*\//g, (_, p) => rd('src/' + p))
   .replace('__LEVELS__', JSON.stringify(levels))
+  // __MAPART__ → the drawn map pictures (style B): src/art/mapart/index.json lists them in road order; each has its
+  // platform marks (<name>.json, made by tools/map-art.py) and its WebP, inlined as a data URI
+  .replace('__MAPART__', () => {
+    const dir = path.join(root, 'src/art/mapart'), list = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+    const art = {}, src = {};
+    for (const n of list) {
+      const m = JSON.parse(fs.readFileSync(path.join(dir, n + '.json'), 'utf8'));
+      art[n] = { aspect: m.aspect, overlap: m.overlap, pads: m.pads };
+      src[n] = 'data:image/webp;base64,' + fs.readFileSync(path.join(dir, n + '.webp')).toString('base64');
+    }
+    return JSON.stringify({ list, art, src });
+  })
   // __ART:path__ → an inline data URI of src/art/path (small WebP images; both the app and the one-file prototype)
   .replace(/__ART:([\w/.-]+)__/g, (_, p) => {
     const ext = path.extname(p).slice(1), mime = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' }[ext];

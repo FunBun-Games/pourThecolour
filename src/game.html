@@ -962,6 +962,7 @@ const buzz = ms => {
 /*@include parts/boosters.js*/
 /*@include parts/shop.js*/
 /*@include parts/style-test.js*/
+/*@include parts/drawn-map.js*/
 
 /* ---------- Game state ---------- */
 let S = null;
@@ -1745,7 +1746,7 @@ $('#mapSettings').addEventListener('click', openSettings);
 $('#hudMap').addEventListener('click', () => { sfx.unlock(); leaveLevel(); });
 $('#homePlay').addEventListener('click', () => { sfx.unlock(); if (save.level >= LEVELS.length) showMap({ from: 'play' }); else openPreLevel(nextLevel()); });
 $('#mapWorlds').addEventListener('click', e => {
-  const n = e.target.closest('.node'); if (!n) return;
+  const n = e.target.closest('.node, .dm-pad'); if (!n) return;
   sfx.unlock();
   const li = Number(n.dataset.li);
   if (li > save.level) { toast(tr().lockedLevel); sfx.nope(); return; }

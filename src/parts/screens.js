@@ -103,7 +103,7 @@ function showMap(opts = {}) {
   renderDock();
   track('map_open', { level: nextLevel() + 1, from: opts.from || 'other' });
   const cur = nextLevel();
-  const node = $(`#mapWorlds .node[data-li="${cur}"]`);
+  const node = $(`#mapWorlds [data-li="${cur}"]`);   // a code node or a drawn platform (style B)
   const sc = $('#mapScroll');
   if (node) {
     // centre the current node (instant), then let the fresh node pop
