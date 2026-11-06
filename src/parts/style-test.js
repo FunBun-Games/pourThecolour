@@ -110,6 +110,9 @@ html[data-style="b"] .world-bg { filter: none !important; background:
   linear-gradient(180deg, #3a2a8f, #23307e 45%, #1b4a9a) !important; background-size: 100% 100%, 100% 100%, 100% 100%, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 260px, 100% 100% !important; }
 html[data-style="b"][data-tone="day"] .world-bg { background-color: #8f7fd6 !important; }
 .b-props { display: none; }
+/* drawn map scenery (GPT-3): tiles down the world section; the road and the level buttons stay code on top */
+html[data-style="b"] .world-bg.has-art { background: var(--map-art) center top / 100% auto repeat-y, #3b46b0 !important; }
+html[data-style="b"] .world.has-art .b-props { display: none; }
 html[data-style="b"] .b-props { display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
 html[data-style="b"] .world .road { z-index: 1; }
 html[data-style="b"] .world-bg .biome-art { display: none; }
@@ -181,6 +184,8 @@ function propPlanet(x, y, r, c, ring) {
     (ring ? `<ellipse rx="${r * 1.7}" ry="${r * 0.42}" fill="none" stroke="#ffd37a" stroke-width="${r * 0.14}" transform="rotate(-18)"/>` : '') + `</g>`;
 }
 const PROP_COLORS = ['#ff5fd2', '#36d1ff', '#7cff6b', '#ffb43a', '#b07cff'];
+// one picture per world when we have it; until all 10 exist, world 1's picture stands in for the rest (preview)
+const MAP_ART = ['__ART:map/world1.webp__'];
 function decorateMapB() {
   document.querySelectorAll('#mapWorlds .world').forEach((w, k) => {
     const road = w.querySelector('.road');
@@ -188,6 +193,11 @@ function decorateMapB() {
       const base = road.querySelector('.road-base');
       const edge = base.cloneNode(); edge.setAttribute('class', 'road-edge'); road.insertBefore(edge, base);
       const dash = base.cloneNode(); dash.setAttribute('class', 'road-dash'); base.after(dash);
+    }
+    const art = MAP_ART[k] || MAP_ART[0];
+    if (art && !w.classList.contains('has-art')) {
+      w.classList.add('has-art');
+      const bg = w.querySelector('.world-bg'); bg.classList.add('has-art'); bg.style.setProperty('--map-art', `url(${art})`);
     }
     if (w.querySelector('.b-props')) return;
     const H = w.offsetHeight || 1000, W = 400, items = [];
