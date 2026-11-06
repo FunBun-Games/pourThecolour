@@ -266,4 +266,11 @@ function styleFromHash() {
   return false;
 }
 window.addEventListener('hashchange', styleFromHash);
-if (!styleFromHash()) applyStyleTest(save.styleTest || 'current');
+// the test build may name a look to open in (window.TEST_STYLE, set once per build id), so a new test build shows
+// the look under review even if the tester had switched to another one earlier
+if (!styleFromHash()) {
+  if (window.TEST_STYLE && STYLE_OPTS.includes(window.TEST_STYLE) && save.styleTestBuild !== window.TEST_BUILD) {
+    save.styleTest = window.TEST_STYLE; save.styleTestBuild = window.TEST_BUILD; persist();
+  }
+  applyStyleTest(save.styleTest || 'current');
+}
