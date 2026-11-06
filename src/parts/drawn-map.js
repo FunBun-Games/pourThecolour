@@ -14,14 +14,38 @@ const DM_W = 1024;           // pictures are marked in 1024-wide pixels; the slo
 
 document.head.insertAdjacentHTML('beforeend', `<style>
 ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).join('\n')}
-#mapWorlds.drawn { display: flex; flex-direction: column-reverse; position: relative; z-index: 0; --u: 0.384; }
+/* the drawn map is the whole screen: the pictures run under the top bar, the dock and the tab bar; on screens wider
+   than the column (640 px) the same picture, blurred and dimmed, continues to the sides, and the column's edges fade
+   into it — one continuous picture, no frame. Below level 1 and above the last level the picture continues mirrored. */
+#map.dm-on { max-width: none; }
+#map.dm-on > .topbar { width: min(100%, 608px); margin-inline: auto; align-self: center; }
+#map.dm-on::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--dm-head, 80px) + 40px); z-index: 2; pointer-events: none;
+  background: linear-gradient(rgba(10, 14, 40, 0.88), rgba(10, 14, 40, 0.55) 55%, transparent); }
+#map.dm-on .map-scroll { position: absolute; inset: 0; margin: 0; padding: 0 !important; z-index: 0; background: #0d1433; }
+#mapWorlds.drawn { display: flex; flex-direction: column-reverse; position: relative; z-index: 0; --u: 0.384; --cw: 393px; }
 .dm-slot { position: relative; flex: none; width: 100%; height: calc(var(--u) * var(--h) * 1px); pointer-events: none; content-visibility: auto; contain-intrinsic-size: auto calc(var(--u) * var(--h) * 1px); }
 .dm-slot + .dm-slot { margin-bottom: calc(var(--u) * var(--ov) * -1px); }
-.dm-art { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
-.dm-art.flip, .dm-cap.flip { transform: scaleX(-1); }
+.dm-col { position: absolute; top: 0; bottom: 0; left: calc(50% - var(--cw) / 2); width: var(--cw); }
+.dm-art, .dm-fill { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
+.dm-fill { display: none; inset: 0 -3%; filter: blur(14px) brightness(0.72) saturate(1.1); }
+#mapWorlds.wide .dm-fill { display: block; }
+.dm-art.flip, .dm-cap.flip, .dm-fill.flip { transform: scaleX(-1); }
 /* the top band fades into the picture above (stacked under this one) */
-.dm-slot.fade .dm-art { -webkit-mask-image: linear-gradient(180deg, transparent 0, rgba(0,0,0,0.08) calc(var(--ovp) * 0.18), rgba(0,0,0,0.5) calc(var(--ovp) * 0.5), rgba(0,0,0,0.92) calc(var(--ovp) * 0.82), #000 var(--ovp));
-  mask-image: linear-gradient(180deg, transparent 0, rgba(0,0,0,0.08) calc(var(--ovp) * 0.18), rgba(0,0,0,0.5) calc(var(--ovp) * 0.5), rgba(0,0,0,0.92) calc(var(--ovp) * 0.82), #000 var(--ovp)); }
+.dm-slot.fade .dm-art, .dm-slot.fade .dm-fill { -webkit-mask-image: var(--dm-vfade); mask-image: var(--dm-vfade); }
+#mapWorlds.drawn { --dm-hfade: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent); }
+/* resolved per slot (its own --ovp) */
+.dm-slot { --dm-vfade: linear-gradient(180deg, transparent 0, rgba(0,0,0,0.08) calc(var(--ovp) * 0.18), rgba(0,0,0,0.5) calc(var(--ovp) * 0.5), rgba(0,0,0,0.92) calc(var(--ovp) * 0.82), #000 var(--ovp)); }
+/* wide: the sharp column's left/right edges fade into the blurred continuation */
+#mapWorlds.wide .dm-art { -webkit-mask-image: var(--dm-hfade); mask-image: var(--dm-hfade); }
+#mapWorlds.wide .dm-slot.fade .dm-art { -webkit-mask-image: var(--dm-hfade), var(--dm-vfade); mask-image: var(--dm-hfade), var(--dm-vfade); -webkit-mask-composite: source-in; mask-composite: intersect; }
+/* the mirrored continuation below level 1 and above the last level */
+.dm-end { position: relative; flex: none; width: 100%; overflow: hidden; pointer-events: none; }
+.dm-end.foot { height: var(--dm-foot, 300px); }
+.dm-end.head { height: var(--dm-head, 80px); }
+.dm-end .dm-col { height: calc(var(--u) * var(--h) * 1px); bottom: auto; }
+.dm-end.foot .dm-col { top: 0; transform: scaleY(-1); transform-origin: 50% 0; top: calc(var(--u) * var(--h) * 1px); }
+.dm-end.head .dm-col { top: auto; bottom: calc(var(--u) * var(--h) * 1px); transform: scaleY(-1); transform-origin: 50% 100%; }
+.dm-end .dm-fill { inset: 0 calc((var(--cw) - 100vw) / 2 - 3%); }
 /* platform cap recoloured from the picture itself */
 .dm-cap { position: absolute; border-radius: 50% / 42%; background-repeat: no-repeat; pointer-events: none;
   background-size: calc(var(--u) * ${DM_W}px) calc(var(--u) * var(--h) * 1px);
@@ -76,9 +100,28 @@ function dmArtFor(k) {
   return { name, flip: Math.floor(k / L.length) % 2 === 1 };
 }
 
+// the column is the screen width up to 640 px; --u scales the pictures' 1024-px marks to it. The mirrored ends are as
+// tall as the top bar (head) and as the dock + tab bar (foot), so level 1 and the last level can scroll into view.
+const DM_COL = 640;
 function dmUnit() {
-  const box = $('#mapWorlds'), w = (box && box.clientWidth) || ($('#mapScroll') && $('#mapScroll').clientWidth) || 393;
-  if (box) box.style.setProperty('--u', (w / DM_W).toFixed(5));
+  const box = $('#mapWorlds'), sc = $('#mapScroll'); if (!box || !sc) return;
+  const W = sc.clientWidth || 393, cw = Math.min(W, DM_COL);
+  box.style.setProperty('--u', (cw / DM_W).toFixed(5));
+  box.style.setProperty('--cw', cw + 'px');
+  box.classList.toggle('wide', W > cw + 1);
+  const map = $('#map'), top = $('#map .map-top'), dock = $('#mapDock');
+  if (!map || map.hidden) return;
+  const mr = map.getBoundingClientRect();
+  const head = Math.round(top.getBoundingClientRect().bottom - mr.top + 12);
+  const foot = Math.round(mr.bottom - dock.getBoundingClientRect().top + 12);
+  map.style.setProperty('--dm-head', head + 'px');
+  box.style.setProperty('--dm-head', head + 'px');
+  box.style.setProperty('--dm-foot', foot + 'px');
+}
+function dmEnd(k, kind) {
+  const { name, flip } = dmArtFor(k), A = MAPART.art[name], h = Math.round(DM_W * A.aspect);
+  return `<div class="dm-end ${kind}" style="--h:${h}" aria-hidden="true"><div class="dm-col"><div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>` +
+    `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div></div></div>`;
 }
 
 function renderMapDrawn() {
@@ -91,6 +134,7 @@ function renderMapDrawn() {
     const h = Math.round(DM_W * A.aspect), ov = Math.round(h * A.overlap);
     const fade = k < slots - 1 ? ' fade' : '';
     let inner = `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div>`;
+    const fill = `<div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>`;
     A.pads.forEach((p, j) => {
       const li = k * 5 + j; if (li >= LEVELS.length) return;
       const L = LEVELS[li], st = (save.best && save.best[li]) || 0;
@@ -127,10 +171,12 @@ function renderMapDrawn() {
       inner += `<div class="world-sign dm-sign ${where}${where === 'top' ? ' ' + side : ''}"><span class="world-num">${t.worldShort(signW + 1)}</span><span class="world-name">${worldOf(signW * 10).name}</span></div>`;
     }
     // lower pictures sit above upper ones: each one's faded top band lies over the picture above it
-    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${slots - k}">${inner}</div>`;
+    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${slots - k}">${fill}<div class="dm-col">${inner}</div></div>`;
   }
+  html = dmEnd(0, 'foot') + html + dmEnd(slots - 1, 'head');
   const box = $('#mapWorlds');
   box.classList.add('drawn');
+  $('#map').classList.add('dm-on');
   box.innerHTML = html;
   dmUnit();
 }
@@ -140,7 +186,8 @@ const isDrawnMap = () => document.documentElement.dataset.style === 'b';
   const renderMapCode = renderMap;
   renderMap = function (...a) {
     if (isDrawnMap()) return renderMapDrawn();
-    $('#mapWorlds').classList.remove('drawn');
+    $('#mapWorlds').classList.remove('drawn', 'wide');
+    $('#map').classList.remove('dm-on');
     return renderMapCode.apply(this, a);
   };
   if (window.ResizeObserver) new ResizeObserver(() => { if (isDrawnMap()) dmUnit(); }).observe($('#mapScroll'));

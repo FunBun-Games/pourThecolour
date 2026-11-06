@@ -49,7 +49,7 @@ const ev = (page, fn, arg) => page.evaluate(fn, arg);
 // where a platform's painted top is on screen, from the picture's marks (the same data the game uses)
 const PAD_GEOM = li => {
   const k = Math.floor(li / 5), j = li % 5, { name, flip } = dmArtFor(k), p = MAPART.art[name].pads[j];
-  const slot = document.querySelector(`.dm-slot[data-slot="${k}"]`), r = slot.getBoundingClientRect();
+  const slot = document.querySelector(`.dm-slot[data-slot="${k}"] > .dm-col`), r = slot.getBoundingClientRect();
   const fx = v => flip ? 1 - v : v;
   const [cx, cy, cw, ch] = p.cap, [hx, hy, hw, hh] = p.hit;
   return { x: r.left + fx(p.x) * r.width, y: r.top + p.y * r.height, rx: p.rx * r.width, ry: p.ry * r.height,
@@ -99,10 +99,10 @@ async function seams(page, tag, n = 4) {
   const res = [];
   for (let k = 0; k < n; k++) {
     const band = await ev(page, k => {
-      const lo = document.querySelector(`.dm-slot[data-slot="${k}"]`), sc = $('#mapScroll');
+      const lo = document.querySelector(`.dm-slot[data-slot="${k}"] > .dm-col`), sc = $('#mapScroll');
       const r0 = lo.getBoundingClientRect(), s = sc.getBoundingClientRect();
       sc.scrollTop += (r0.top - s.top) - s.height * 0.4;
-      const r = lo.getBoundingClientRect(), ov = parseFloat(getComputedStyle(lo).getPropertyValue('--ov')) * parseFloat(getComputedStyle($('#mapWorlds')).getPropertyValue('--u'));
+      const r = lo.getBoundingClientRect(), ov = parseFloat(getComputedStyle(lo.parentElement).getPropertyValue('--ov')) * parseFloat(getComputedStyle($('#mapWorlds')).getPropertyValue('--u'));
       const hw = MAPART.art[dmArtFor(k).name].pads && 80 / 1024 * r.width;   // common half-width (tools/map-art.py ROAD_HW)
       return { left: r.left, width: r.width, top: r.top, ov, hw };
     }, k);
