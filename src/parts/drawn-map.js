@@ -91,13 +91,16 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 
 const DM_PIN = '<svg class="dm-pin" viewBox="0 0 58 76" aria-hidden="true"><path d="M29 3C15 3 4 13.6 4 27.4 4 45 29 73 29 73s25-28 25-45.6C54 13.6 43 3 29 3z" fill="#ff4b5c" stroke="#1d2230" stroke-width="5" stroke-linejoin="round"/><path d="M15 20c2-6 7-9 12-10" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round"/><circle cx="29" cy="27" r="9" fill="#fff" stroke="#1d2230" stroke-width="4"/></svg>';
 
-// picture k of the road (k = 0 is levels 1–5): its own picture when drawn, otherwise the ones we have, in turn,
-// mirrored on every other pass so two neighbours never repeat the same view
+// picture k of the road (k = 0 is levels 1–5). World w uses theme w % 10 (worlds 11–20 repeat 1–10 and so on, like
+// the world names); every other round of themes is mirrored, so a repeat never looks the same as last time.
+// A missing part takes the same world's other part, mirrored; a missing world takes the pictures we have, in turn.
 function dmArtFor(k) {
-  const w = Math.floor(k / 2), part = k % 2 ? 'b' : 'a', own = `world${w + 1}-${part}`;
-  if (MAPART.art[own]) return { name: own, flip: false };
-  const L = MAPART.list, name = L[k % L.length];
-  return { name, flip: Math.floor(k / L.length) % 2 === 1 };
+  const w = Math.floor(k / 2), part = k % 2 ? 'b' : 'a', theme = w % 10, round = Math.floor(w / 10) % 2 === 1;
+  const own = `world${theme + 1}-${part}`, other = `world${theme + 1}-${part === 'a' ? 'b' : 'a'}`;
+  if (MAPART.art[own]) return { name: own, flip: round };
+  if (MAPART.art[other]) return { name: other, flip: !round };
+  const L = MAPART.list;
+  return { name: L[k % L.length], flip: Math.floor(k / L.length) % 2 === 1 };
 }
 
 // the column is the screen width up to 640 px; --u scales the pictures' 1024-px marks to it. The mirrored ends are as

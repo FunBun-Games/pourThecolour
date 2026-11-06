@@ -80,6 +80,47 @@ def road_rows(rgb, rows, guess):
     return out
 
 
+def road_rows_dash(rgb, rows, guess):
+    """Fallback when the rims are faint at the edge: follow the glowing cyan dashes (the road's centre line, always
+    there) row by row, and on each row take the nearest brightness peak either side of it as the rim. Rows between
+    dashes and odd rims are filled and smoothed later (smooth_track)."""
+    lum = nd.uniform_filter1d(rgb[..., 0] * 0.3 + rgb[..., 1] * 0.55 + rgb[..., 2] * 0.15, 3, axis=0)
+    cyan = (rgb[..., 1] > 190) & (rgb[..., 2] > 225) & (rgb[..., 0] < 190)
+    centres, out = {}, {}
+    c = guess
+    for y in rows:
+        lo, hi = int(max(0, c - 70)), int(min(W, c + 70))
+        xs = np.nonzero(cyan[y, lo:hi])[0]
+        if len(xs) >= 3 and xs.max() - xs.min() < 45:
+            c = lo + (xs.min() + xs.max()) / 2
+            centres[y] = c
+    if len(centres) < len(rows) * 0.2: return out
+    ys = np.array(sorted(centres)); cs = np.interp(rows, ys, [centres[y] for y in ys])
+    for y, c in zip(rows, cs):
+        L = nd.gaussian_filter1d(lum[y], 1.5)
+        ci = int(round(c))
+        deck = np.median(np.r_[L[max(0, ci - 45):max(0, ci - 22)], L[ci + 22:ci + 45]])
+        def rim(d):
+            for k in range(30, 220):
+                x = ci + d * k
+                if x <= 1 or x >= W - 2: return None
+                if L[x] > deck + 25 and L[x] >= L[x - 1] and L[x] >= L[x + 1]: return x
+            return None
+        l, r = rim(-1), rim(1)
+        if l is not None and r is not None:
+            hw = (r - l) / 2
+            if 30 < hw < 200: out[y] = (c, hw)        # centre from the dashes, width from the rims
+    return out
+
+
+def road_any(rgb, rows, guess):
+    """The rims first (precise); the dashes when the rims are faint."""
+    m = road_rows(rgb, rows, guess)
+    if len(m) >= len(rows) * 0.35: return m
+    m2 = road_rows_dash(rgb, rows, guess)
+    return m2 if len(m2) > len(m) else m
+
+
 def smooth_track(meas, rows):
     """Fill gaps (linear) and smooth (moving median + mean) the per-row road measurements."""
     ys = np.array(sorted(meas));
@@ -120,12 +161,16 @@ def bend_ends(img, limits):
         if span < full + 20:
             raise SystemExit(f'a platform is too close to the {end} edge ({limits[end]} px): the road has no room to meet the next picture')
         rows = list(range(H - 1, H - 1 - span - 40, -1)) if end == 'bottom' else list(range(0, span + 40))
-        # first guess: the brightest cyan column in the 12 rows at the edge
-        edge = rgb[rows[:12]]
-        cyan = ((edge[..., 1] > 200) & (edge[..., 2] > 230)).sum(0)
-        cyan[:200] = 0; cyan[-200:] = 0
-        guess = float(np.argmax(nd.uniform_filter1d(cyan.astype(float), 25)))
-        track = smooth_track(road_rows(rgb, rows, guess), rows)
+        # first guess: the most cyan column in the 80 rows at the edge, in the middle 40% (the road enters near the
+        # middle; glowing props at the sides are not the road; a gap between dashes can sit right at the edge)
+        edge = rgb[rows[:80]]
+        cyan = ((edge[..., 1] > 200) & (edge[..., 2] > 230)).sum(0).astype(float)
+        cyan[:int(W * 0.3)] = 0; cyan[int(W * 0.7):] = 0
+        sm = nd.uniform_filter1d(cyan, 25)
+        # strong candidates (≥ half the best); the one nearest the middle is the road's dash line
+        cand = np.nonzero(sm >= 0.5 * sm.max())[0] if sm.max() > 0 else np.array([W // 2])
+        guess = float(cand[np.argmin(np.abs(cand - W / 2))])
+        track = smooth_track(road_any(rgb, rows, guess), rows)
         d = dash_offset(rgb, track, rows[:full])
         c0, h0 = track[rows[0]]
         info[end] = {'x': round(c0 / W, 4), 'hw': round(h0 / W, 4), 'dash': round(d / W, 4)}
@@ -210,12 +255,16 @@ def platforms(img):
 
 
 def save_webp(img, path):
-    q = 72
-    while True:
-        img.save(path, 'WEBP', quality=q, method=6)
-        kb = os.path.getsize(path) / 1024
-        if kb <= MAX_KB or q <= 40: return kb, q
-        q -= 2
+    """Quality 72 down to 44; a busy picture that is still over MAX_KB is saved a little narrower (the game scales
+    every picture to the column width anyway, so the width does not change any coordinates)."""
+    w0, h0 = img.size
+    for w in (w0, 800, 736):
+        im = img if w == w0 else img.resize((w, round(h0 * w / w0)), Image.LANCZOS)
+        for q in range(72, 42, -2):
+            im.save(path, 'WEBP', quality=q, method=6)
+            kb = os.path.getsize(path) / 1024
+            if kb <= MAX_KB: return kb, q, w
+    return kb, q, w
 
 
 def process(name, debug):
@@ -228,14 +277,15 @@ def process(name, debug):
     # check: after bending, both ends are in the middle at the common width
     check = bend_check(bent)
     out_h = round(OUT_W * H / W)
-    kb, q = save_webp(bent.resize((OUT_W, out_h), Image.LANCZOS), os.path.join(OUT, name + '.webp'))
+    kb, q, out_w = save_webp(bent.resize((OUT_W, out_h), Image.LANCZOS), os.path.join(OUT, name + '.webp'))
+    out_h = round(out_w * H / W)
     meta = {
         'name': name, 'w': W, 'h': H, 'aspect': round(H / W, 5), 'overlap': OVERLAP,
         'road': {'before': road, 'after': check, 'hw': round(ROAD_HW / W, 4)},
         'pads': [{'x': round(p['cx'] / W, 4), 'y': round(p['cy'] / H, 4), 'rx': round(p['rx'] / W, 4), 'ry': round(p['ry'] / H, 4),
                   'cap': [round(p['cap'][0] / W, 4), round(p['cap'][1] / H, 4), round(p['cap'][2] / W, 4), round(p['cap'][3] / H, 4)],
                   'hit': [round(p['box'][0] / W, 4), round(p['box'][1] / H, 4), round(p['box'][2] / W, 4), round(p['box'][3] / H, 4)]} for p in pads],
-        'webp': {'w': OUT_W, 'h': out_h, 'kb': round(kb, 1), 'quality': q},
+        'webp': {'w': out_w, 'h': out_h, 'kb': round(kb, 1), 'quality': q},
     }
     with open(os.path.join(OUT, name + '.json'), 'w') as f: json.dump(meta, f, indent=1)
     print(f"{name}: road in x={road['bottom']['x'] * W:.0f} hw={road['bottom']['hw'] * W:.0f} → {check['bottom']['x'] * W:.0f}/{check['bottom']['hw'] * W:.0f}; "
@@ -248,11 +298,17 @@ def process(name, debug):
 def bend_check(img):
     rgb = np.asarray(img.convert('RGB')).astype(np.float32)
     res = {}
-    for end, rows in (('bottom', list(range(H - 1, H - 13, -1))), ('top', list(range(0, 12)))):
-        m = road_rows(rgb, rows, W / 2)
-        if not m: raise SystemExit('road lost after bending (' + end + ')')
-        c = np.median([v[0] for v in m.values()]); h = np.median([v[1] for v in m.values()])
-        if abs(c - W / 2) > 6 or abs(h - ROAD_HW) > 8:
+    for end, rows in (('bottom', list(range(H - 1, H - 41, -1))), ('top', list(range(0, 40)))):
+        # the overlap band is fully bent: its first 40 rows must show the road in the middle at the common width
+        best = None
+        for m in (road_rows(rgb, rows, W / 2), road_rows_dash(rgb, rows, W / 2)):
+            if len(m) < len(rows) * 0.3: continue
+            c = np.median([v[0] for v in m.values()]); h = np.median([v[1] for v in m.values()])
+            err = abs(c - W / 2) + abs(h - ROAD_HW)
+            if best is None or err < best[2]: best = (c, h, err)
+        if best is None: raise SystemExit('road lost after bending (' + end + ')')
+        c, h, _ = best
+        if abs(c - W / 2) > 6 or abs(h - ROAD_HW) > 12:
             raise SystemExit(f'bending failed at the {end}: centre {c:.0f}, half-width {h:.0f}')
         res[end] = {'x': round(c / W, 4), 'hw': round(h / W, 4)}
     return res
@@ -276,11 +332,16 @@ def main():
     debug = '--debug' in sys.argv
     names = args or sorted(f[:-4] for f in os.listdir(SRC) if f.endswith('.png'))
     os.makedirs(OUT, exist_ok=True)
-    metas = [process(n, debug) for n in names]
+    metas, failed = [], []
+    for n in names:
+        try: metas.append(process(n, debug))
+        except SystemExit as e: failed.append(n); print(f'{n}: FAILED — {e}')
+    if failed: print('not prepared (the game keeps their earlier version if any):', ', '.join(failed))
     # the game's road, bottom to top: world N uses <N>-a then <N>-b; a missing picture repeats the pilot,
     # mirrored on every other slot so neighbours never look the same (see screens: MAP_ART)
     index = sorted(set([m['name'] for m in metas]) | set(f[:-5] for f in os.listdir(OUT) if f.endswith('.json') and f != 'index.json'))
     with open(os.path.join(OUT, 'index.json'), 'w') as f: json.dump(index, f)
+    if failed: sys.exit(1)
 
 
 if __name__ == '__main__':

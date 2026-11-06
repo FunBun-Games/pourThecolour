@@ -59,7 +59,10 @@ const PAD_GEOM = li => {
 
 async function tapAll(page, tag, cur) {
   let bad = [], opened = 0, lockedOk = 0, precise = 0, sizeOk = 0, numOk = 0;
-  for (let li = 0; li < 30; li++) {
+  // levels 1–30 (worlds 1–3, own pictures), 56–60 (world 6 part b: missing, part a mirrored), 106–110 (world 11:
+  // theme 1 again, mirrored) and 195–200 (world 20 = theme 10)
+  const LIST = [...Array(30).keys(), 55, 56, 57, 58, 59, 105, 106, 107, 108, 109, 195, 196, 197, 198, 199], N = LIST.length;
+  for (const li of LIST) {
     await ev(page, li => { const el = document.querySelector(`.dm-pad[data-li="${li}"]`); const sc = $('#mapScroll'), r = el.getBoundingClientRect(), s = sc.getBoundingClientRect(); sc.scrollTop += (r.top - s.top) - s.height * 0.4; }, li);
     await page.waitForTimeout(60);
     const g = await ev(page, `(${PAD_GEOM.toString()})(${li})`);
@@ -88,10 +91,10 @@ async function tapAll(page, tag, cur) {
     else { if (!res.pre && res.toast) lockedOk++; else bad.push(`${li + 1}: locked tap (${JSON.stringify(res)})`); }
     if (res.pre) { await ev(page, () => hide('#preOverlay')); await page.waitForTimeout(60); }
   }
-  check(`${tag}: taps at the centre and both sides of each painted top hit that platform, not beside it (30 platforms)`, precise === 30, bad.slice(0, 3).join(' | '));
-  check(`${tag}: open levels open their own card (${cur + 1}), locked ones say "locked" (${30 - cur - 1})`, opened === cur + 1 && lockedOk === 30 - cur - 1);
-  check(`${tag}: every tap area ≥ 44×44 px`, sizeOk === 30);
-  check(`${tag}: the number sits on the painted top`, numOk === 30, `${numOk}/30`);
+  check(`${tag}: taps at the centre and both sides of each painted top hit that platform, not beside it (${N} platforms)`, precise === N, bad.slice(0, 3).join(' | '));
+  check(`${tag}: open levels open their own card (${cur + 1}), locked ones say "locked" (${N - cur - 1})`, opened === cur + 1 && lockedOk === N - cur - 1);
+  check(`${tag}: every tap area ≥ 44×44 px`, sizeOk === N);
+  check(`${tag}: the number sits on the painted top`, numOk === N, `${numOk}/${N}`);
 }
 
 // seam: screenshot the band where picture k meets picture k+1 and look at the road rims row by row (in the page)
