@@ -23,14 +23,15 @@ SRC = os.path.join(ROOT, 'store/art/gpt3b')
 OUT = os.path.join(ROOT, 'src/art/mapart')
 DBG = os.path.join(ROOT, 'qa-out/mapart')
 
-W, H = 1024, 1536          # the picture size the prompt asks for (others are resized to this first)
+W, H0 = 1024, 1536         # the picture size the prompt asks for (others are resized to this first)
+H = H0                     # the height being worked on (pictures are cropped at their empty ends)
 ROAD_HW = 80               # common half-width of the road (rim centre to rim centre) where pictures meet
-TAPER = 90                 # after the overlap band the bend eases off over this many rows (less if a platform is nearer)
+OV_PX = 60                 # rows where neighbouring pictures overlap and cross-fade (the seam); the road is fully bent there
+TAPER_MIN, TAPER_MAX = 50, 150   # after the band the bend eases off over ~1.6 × the shift it has to undo
 OUT_W = 864                # width of the shipped WebP (phones show it at 320–640 css px; painterly art holds up when upscaled)
 MAX_KB = 120
 CAP_HW = 0.63               # the tallest a platform's button can look (height / width) in the 3/4 view
 CAP_FIX = (0.59, 0.445)    # a clean button's height / width and its flat top's ry / rx (measured on clean ones)
-OVERLAP = 0.09             # the next picture covers this share of the picture height and fades in (the seam)
 
 
 def hsv_of(img):
@@ -147,7 +148,7 @@ def dash_offset(rgb, track, rows):
     return float(np.median(offs)) if len(offs) > 10 else 0.0
 
 
-def bend_ends(img, limits):
+def bend_ends(img, limits, tapers):
     """Bend both ends of the road to the middle at ROAD_HW: the rims go to 512 ± ROAD_HW and the dash line to 512.
     Fully inside the overlap band (where the neighbouring picture fades in, so both roads lie exactly on top of each
     other), then easing back to the picture as drawn over TAPER rows — but never into a platform (limits[end] is
@@ -155,9 +156,9 @@ def bend_ends(img, limits):
     rgb = np.asarray(img.convert('RGB')).astype(np.float32)
     info = {}
     out = rgb.copy()
-    full = int(round(OVERLAP * H))
+    full = OV_PX
     for end in ('bottom', 'top'):
-        span = min(full + TAPER, limits[end] - 12)
+        span = min(full + tapers[end], limits[end] - 6)
         if span < full + 20:
             raise SystemExit(f'a platform is too close to the {end} edge ({limits[end]} px): the road has no room to meet the next picture')
         rows = list(range(H - 1, H - 1 - span - 40, -1)) if end == 'bottom' else list(range(0, span + 40))
@@ -267,12 +268,49 @@ def save_webp(img, path):
     return kb, q, w
 
 
+def crop_plan(img, free):
+    """For each end: how many empty rows to cut and how long the bend after the band is. The road is followed from
+    the edge inwards; the cut is the deepest row where band + bend (1.6 × the shift still to undo, 50–150 rows) fit
+    before the platform. Returns ({'top': rows, 'bottom': rows}, {'top': taper, 'bottom': taper})."""
+    rgb = np.asarray(img.convert('RGB')).astype(np.float32)
+    cut, tapers = {}, {}
+    for end in ('top', 'bottom'):
+        n = free[end]
+        rows = list(range(0, n)) if end == 'top' else list(range(H - 1, H - 1 - n, -1))
+        edge = rgb[rows[:80]]
+        cyan = ((edge[..., 1] > 200) & (edge[..., 2] > 230)).sum(0).astype(float)
+        cyan[:int(W * 0.3)] = 0; cyan[int(W * 0.7):] = 0
+        sm = nd.uniform_filter1d(cyan, 25)
+        cand = np.nonzero(sm >= 0.5 * sm.max())[0] if sm.max() > 0 else np.array([W // 2])
+        guess = float(cand[np.argmin(np.abs(cand - W / 2))])
+        try: track = smooth_track(road_any(rgb, rows, guess), rows)
+        except SystemExit: track = None
+        best_k, best_t = 0, TAPER_MAX
+        for k in range(max(0, n - OV_PX - TAPER_MIN), -1, -4):         # k = rows cut from this end
+            if track is None: break
+            c, h = track[rows[k]]
+            taper = int(np.clip(1.6 * (abs(c - W / 2) + 0.5 * abs(h - ROAD_HW)), TAPER_MIN, TAPER_MAX))
+            if k + OV_PX + taper <= n:
+                best_k, best_t = k, taper
+                break
+        cut[end], tapers[end] = best_k, best_t
+    return cut, tapers
+
+
 def process(name, debug):
     img = Image.open(os.path.join(SRC, name + '.png')).convert('RGB')
-    if img.size != (W, H): img = img.resize((W, H), Image.LANCZOS)
-    first = platforms(img)            # where the platforms are decides how far the road may be bent
-    limits = {'top': min(p['box'][1] for p in first), 'bottom': H - max(p['box'][1] + p['box'][3] for p in first)}
-    bent, road = bend_ends(img, limits)
+    if img.size != (W, H0): img = img.resize((W, H0), Image.LANCZOS)
+    global H
+    H = H0
+    first = platforms(img)            # where the platforms are decides how much empty road there is at each end
+    free = {'top': min(p['box'][1] for p in first) - 8, 'bottom': H - max(p['box'][1] + p['box'][3] for p in first) - 8}
+    # crop the empty ends: keep only the band + the bend it needs, so the road between the last platform of one
+    # picture and the first of the next is about as long as between two platforms of one picture
+    cut, tapers = crop_plan(img, free)
+    img = img.crop((0, cut['top'], W, H - cut['bottom']))
+    H = img.size[1]
+    limits = {e: free[e] - cut[e] + 8 for e in free}
+    bent, road = bend_ends(img, limits, tapers)
     pads = platforms(bent)
     # check: after bending, both ends are in the middle at the common width
     check = bend_check(bent)
@@ -280,7 +318,7 @@ def process(name, debug):
     kb, q, out_w = save_webp(bent.resize((OUT_W, out_h), Image.LANCZOS), os.path.join(OUT, name + '.webp'))
     out_h = round(out_w * H / W)
     meta = {
-        'name': name, 'w': W, 'h': H, 'aspect': round(H / W, 5), 'overlap': OVERLAP,
+        'name': name, 'w': W, 'h': H, 'aspect': round(H / W, 5), 'overlap': round(OV_PX / H, 5), 'cut': cut,
         'road': {'before': road, 'after': check, 'hw': round(ROAD_HW / W, 4)},
         'pads': [{'x': round(p['cx'] / W, 4), 'y': round(p['cy'] / H, 4), 'rx': round(p['rx'] / W, 4), 'ry': round(p['ry'] / H, 4),
                   'cap': [round(p['cap'][0] / W, 4), round(p['cap'][1] / H, 4), round(p['cap'][2] / W, 4), round(p['cap'][3] / H, 4)],
@@ -290,8 +328,9 @@ def process(name, debug):
     with open(os.path.join(OUT, name + '.json'), 'w') as f: json.dump(meta, f, indent=1)
     print(f"{name}: road in x={road['bottom']['x'] * W:.0f} hw={road['bottom']['hw'] * W:.0f} → {check['bottom']['x'] * W:.0f}/{check['bottom']['hw'] * W:.0f}; "
           f"out x={road['top']['x'] * W:.0f} hw={road['top']['hw'] * W:.0f} → {check['top']['x'] * W:.0f}/{check['top']['hw'] * W:.0f}; "
-          f"pads " + ' '.join(f"({p['cx']:.0f},{p['cy']:.0f})" for p in pads) + f"; webp {kb:.0f} KB q{q}")
+          f"cut {cut['top']}/{cut['bottom']}, taper {tapers['top']}/{tapers['bottom']}; pads " + ' '.join(f"({p['cx']:.0f},{p['cy']:.0f})" for p in pads) + f"; webp {kb:.0f} KB q{q}")
     if debug: draw_debug(bent, pads, name)
+    H = H0
     return meta
 
 
@@ -308,7 +347,7 @@ def bend_check(img):
             if best is None or err < best[2]: best = (c, h, err)
         if best is None: raise SystemExit('road lost after bending (' + end + ')')
         c, h, _ = best
-        if abs(c - W / 2) > 6 or abs(h - ROAD_HW) > 12:
+        if abs(c - W / 2) > 9 or abs(h - ROAD_HW) > 12:
             raise SystemExit(f'bending failed at the {end}: centre {c:.0f}, half-width {h:.0f}')
         res[end] = {'x': round(c / W, 4), 'hw': round(h / W, 4)}
     return res
@@ -317,7 +356,7 @@ def bend_check(img):
 def draw_debug(img, pads, name):
     os.makedirs(DBG, exist_ok=True)
     d = img.copy(); dr = ImageDraw.Draw(d)
-    for y in (int(OVERLAP * H), H - int(OVERLAP * H)): dr.line([(0, y), (W, y)], fill=(255, 0, 255), width=2)
+    for y in (OV_PX, H - OV_PX): dr.line([(0, y), (W, y)], fill=(255, 0, 255), width=2)
     dr.line([(W / 2, 0), (W / 2, H)], fill=(255, 0, 255), width=1)
     for k, p in enumerate(pads):
         dr.ellipse([p['cx'] - p['rx'], p['cy'] - p['ry'], p['cx'] + p['rx'], p['cy'] + p['ry']], outline=(255, 0, 0), width=3)

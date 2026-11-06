@@ -80,8 +80,30 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-pad.fresh + .dm-cap, .dm-pad.fresh + .dm-cap + .dm-mark .dm-num { animation: dmfresh 700ms cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes dmfresh { from { filter: brightness(2.4); scale: 0.4; } }
 .dm-sign.world-sign { z-index: 4; pointer-events: none; }
+/* gate between worlds: a dark band across the seam (over both pictures and the side fill, under the marks) */
+.dm-gate { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
+  top: calc(var(--u) * (var(--ov) * 0.5 - 230) * 1px); height: calc(var(--u) * 460px);
+  background: linear-gradient(180deg, transparent, rgba(3, 5, 20, 0.72) 22%, rgba(3, 5, 20, 0.95) 40%, rgba(3, 5, 20, 0.95) 60%, rgba(3, 5, 20, 0.72) 78%, transparent); }
+/* the upper picture's half: the same band, measured from its bottom edge */
+.dm-gate.up { top: auto; bottom: calc(var(--u) * (var(--ov) * 0.5 - 230) * 1px); }
+.dm-gate.up::after { display: none; }
+/* a thin glowing line across the middle of the gate: the border of the next world */
+.dm-gate::after { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; height: calc(var(--u) * 6px); margin-top: calc(var(--u) * -3px); border-radius: 99px;
+  background: linear-gradient(90deg, transparent, rgba(255, 205, 60, 0.85) 20%, #fff3b0 50%, rgba(255, 205, 60, 0.85) 80%, transparent);
+  box-shadow: 0 0 calc(var(--u) * 18px) calc(var(--u) * 4px) rgba(255, 190, 60, 0.55); }
+/* the next world, not open yet: fog over its first picture, a padlock card; nothing above it */
+.dm-fog { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; pointer-events: none;
+  background: linear-gradient(0deg, rgba(4, 6, 24, 0.45), rgba(4, 6, 24, 0.86) 45%, rgba(4, 6, 24, 0.96)); backdrop-filter: blur(2px) saturate(0.6); -webkit-backdrop-filter: blur(2px) saturate(0.6); }
+.dm-fog-card { display: grid; justify-items: center; gap: 6px; max-width: 80%; padding: 14px 18px; border-radius: 18px; text-align: center; color: #fff;
+  background: linear-gradient(#304c92, #1b2c63); border: 3px solid #1d2230; box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.3), 0 6px 0 rgba(0,0,0,0.35); transform: translateY(18%); }
+.dm-fog-card b { font-family: var(--font-display); font-size: 1rem; line-height: 1.2; }
+.dm-fog-card small { color: #c9d6f5; font-size: 0.8rem; font-weight: 600; line-height: 1.3; }
+.dm-fog-lock { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(#5b6687, #343d5e); border: 3px solid #1d2230; }
+.dm-fog-lock svg { width: 20px; height: 20px; fill: #e3e8f6; }
+.dm-slot.locked .dm-fill { filter: blur(14px) brightness(0.35) saturate(0.6); }
+.dm-end.head.locked::after { content: ""; position: absolute; inset: 0; background: rgba(4, 6, 24, 0.96); }
 .dm-sign.bottom { bottom: calc(var(--u) * 26px); }
-.dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ov) * 0.5px); transform: translateY(-50%); }
+.dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ov) * 0.5px); transform: translateY(-50%); z-index: 4; }
 .dm-sign.top { max-width: 52%; box-sizing: border-box; }
 .dm-sign.top .world-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dm-sign.top.left { left: 3%; right: auto; }
@@ -91,16 +113,18 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 
 const DM_PIN = '<svg class="dm-pin" viewBox="0 0 58 76" aria-hidden="true"><path d="M29 3C15 3 4 13.6 4 27.4 4 45 29 73 29 73s25-28 25-45.6C54 13.6 43 3 29 3z" fill="#ff4b5c" stroke="#1d2230" stroke-width="5" stroke-linejoin="round"/><path d="M15 20c2-6 7-9 12-10" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round"/><circle cx="29" cy="27" r="9" fill="#fff" stroke="#1d2230" stroke-width="4"/></svg>';
 
-// picture k of the road (k = 0 is levels 1–5). World w uses theme w % 10 (worlds 11–20 repeat 1–10 and so on, like
-// the world names); every other round of themes is mirrored, so a repeat never looks the same as last time.
-// A missing part takes the same world's other part, mirrored; a missing world takes the pictures we have, in turn.
+// picture k of the road (k = 0 is levels 1–5). Every picture has its platforms right, left, right, left, right from
+// the bottom; the second picture of each world (odd k) is mirrored, so the platforms keep alternating across every
+// seam and the road between two pictures is one more bend of the same zigzag. World w uses theme w % 10 (worlds
+// 11–20 repeat 1–10, like the world names). A missing part takes the same world's other part; a missing world takes
+// the pictures we have, in turn.
 function dmArtFor(k) {
-  const w = Math.floor(k / 2), part = k % 2 ? 'b' : 'a', theme = w % 10, round = Math.floor(w / 10) % 2 === 1;
+  const w = Math.floor(k / 2), part = k % 2 ? 'b' : 'a', theme = w % 10, flip = k % 2 === 1;
   const own = `world${theme + 1}-${part}`, other = `world${theme + 1}-${part === 'a' ? 'b' : 'a'}`;
-  if (MAPART.art[own]) return { name: own, flip: round };
-  if (MAPART.art[other]) return { name: other, flip: !round };
+  if (MAPART.art[own]) return { name: own, flip };
+  if (MAPART.art[other]) return { name: other, flip };
   const L = MAPART.list;
-  return { name: L[k % L.length], flip: Math.floor(k / L.length) % 2 === 1 };
+  return { name: L[k % L.length], flip };
 }
 
 // the column is the screen width up to 640 px; --u scales the pictures' 1024-px marks to it. The mirrored ends are as
@@ -130,14 +154,29 @@ function dmEnd(k, kind) {
 function renderMapDrawn() {
   const t = tr(), cur = nextLevel(), allDone = save.level >= LEVELS.length;
   const slots = Math.ceil(LEVELS.length / 5);
+  // the map ends with the current world: the next world shows its first picture under a fog with a padlock and
+  // nothing above it, until the current world is passed (testers can open the whole map: save.mapAll)
+  const open = allDone || save.mapAll ? slots : Math.min(slots, (Math.floor(cur / 10) + 1) * 2);
+  const count = Math.min(slots, open + 1), lockedK = open < slots ? open : -1;
   const pct = v => (v * 100).toFixed(3) + '%';
   let html = '';
-  for (let k = 0; k < slots; k++) {
+  for (let k = 0; k < count; k++) {
     const { name, flip } = dmArtFor(k), A = MAPART.art[name];
     const h = Math.round(DM_W * A.aspect), ov = Math.round(h * A.overlap);
-    const fade = k < slots - 1 ? ' fade' : '';
+    const fade = k < count - 1 ? ' fade' : '';
     let inner = `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div>`;
     const fill = `<div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>`;
+    // the seam into the next world is darkened (a gate between worlds)
+    // (each picture paints only inside itself, so both pictures at the seam carry their half of the gate)
+    const gate = (k % 2 === 1 && k < count - 1 ? '<div class="dm-gate" aria-hidden="true"></div>' : '') +
+      (k % 2 === 0 && k > 0 ? '<div class="dm-gate up" aria-hidden="true"></div>' : '');
+    if (k === lockedK) {
+      const w = k / 2;
+      inner += `<div class="dm-fog"><div class="dm-fog-card"><span class="dm-fog-lock">${ICON_LOCK}</span>` +
+        `<b>${t.worldShort(w + 1)} · ${worldOf(w * 10).name}</b><small>${t.worldLockedHint(w)}</small></div></div>`;
+      html += `<div class="dm-slot locked" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${count - k}">${fill}${gate}<div class="dm-col">${inner}</div></div>`;
+      continue;
+    }
     A.pads.forEach((p, j) => {
       const li = k * 5 + j; if (li >= LEVELS.length) return;
       const L = LEVELS[li], st = (save.best && save.best[li]) || 0;
@@ -167,22 +206,33 @@ function renderMapDrawn() {
     // world 1 has no picture below, so its sign stands at the very bottom
     const signs = [];
     if (k === 0) signs.push([0, 'bottom']);
-    if (k % 2 === 1 && (k + 1) * 5 < LEVELS.length) signs.push([(k + 1) / 2, 'top']);
+    if (k % 2 === 1 && k + 1 < count && k + 1 !== lockedK) signs.push([(k + 1) / 2, 'top']);
     // on a seam the sign stands to the side away from the top platform below it (its pin must stay clear)
     const topX = flip ? 1 - A.pads[4].x : A.pads[4].x, side = topX > 0.5 ? 'left' : 'right';
     for (const [signW, where] of signs) {
       inner += `<div class="world-sign dm-sign ${where}${where === 'top' ? ' ' + side : ''}"><span class="world-num">${t.worldShort(signW + 1)}</span><span class="world-name">${worldOf(signW * 10).name}</span></div>`;
     }
     // lower pictures sit above upper ones: each one's faded top band lies over the picture above it
-    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${slots - k}">${fill}<div class="dm-col">${inner}</div></div>`;
+    html += `<div class="dm-slot${fade}" data-slot="${k}" style="--h:${h};--ov:${ov};--ovp:${(A.overlap * 100).toFixed(2)}%;z-index:${count - k}">${fill}${gate}<div class="dm-col">${inner}</div></div>`;
   }
-  html = dmEnd(0, 'foot') + html + dmEnd(slots - 1, 'head');
+  html = dmEnd(0, 'foot') + html + dmEnd(count - 1, lockedK >= 0 ? 'head locked' : 'head');
   const box = $('#mapWorlds');
   box.classList.add('drawn');
   $('#map').classList.add('dm-on');
   box.innerHTML = html;
   dmUnit();
 }
+
+Object.assign(T.uk, { worldLockedHint: w => `Відкриється, коли пройдеш світ ${w}`, tMapAll: on => `Вся мапа: ${on ? 'відкрита' : 'лише пройдене'}` });
+Object.assign(T.en, { worldLockedHint: w => `Opens when you finish world ${w}`, tMapAll: on => `Whole map: ${on ? 'open' : 'played so far'}` });
+$('#testerTools .btns').insertAdjacentHTML('beforebegin', '<div class="btns"><button class="btn" id="tMapAll"></button></div>');
+const tMapAllLabel = () => { $('#tMapAll').textContent = tr().tMapAll(!!save.mapAll); };
+$('#tMapAll').addEventListener('click', () => {
+  save.mapAll = !save.mapAll; persist(); tMapAllLabel();
+  if (screenNow === 'map') { const sc = $('#mapScroll'), st = sc.scrollTop; renderMap(); sc.scrollTop = st; }
+});
+document.querySelectorAll('#mapSettings, #settingsBtn').forEach(b => b.addEventListener('click', tMapAllLabel));
+tMapAllLabel();
 
 const isDrawnMap = () => document.documentElement.dataset.style === 'b';
 {

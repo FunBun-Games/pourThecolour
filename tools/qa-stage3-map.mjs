@@ -42,7 +42,7 @@ async function open(vp, save, { wrapper = false } = {}) {
   return page;
 }
 const base = (level, o = {}) => Object.assign({ level, coins: 500, noAds: true, sound: false, music: false, lang: 'uk', sinceAd: 0, stats: { 0: {} }, variant: 'liquid',
-  tips: { lock: 1, hidden: 1, one: 1 }, granted: { undo: 1, time: 1, tube: 1 }, inv: { undo: 0, tube: 0, time: 0 }, piggy: 0, starterShown: 1, piggyTold: 1, styleTest: 'b-night',
+  tips: { lock: 1, hidden: 1, one: 1 }, granted: { undo: 1, time: 1, tube: 1 }, inv: { undo: 0, tube: 0, time: 0 }, piggy: 0, starterShown: 1, piggyTold: 1, styleTest: 'b-night', mapAll: 1,
   best: Object.fromEntries(Array.from({ length: level }, (_, i) => [i, 3 - (i % 3)])) }, o);
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 
@@ -113,9 +113,9 @@ async function seams(page, tag, n = 4) {
     // the band: from a bit above the upper picture's faded bottom edge to a bit below the lower picture's top
     const y0 = Math.max(0, band.top - 30), h = band.ov + 60;
     // hide the world sign (it sits on world seams) so the road itself is measured
-    await ev(page, () => document.querySelectorAll('.dm-sign').forEach(e => e.style.visibility = 'hidden'));
+    await ev(page, () => document.querySelectorAll('.dm-sign, .dm-gate').forEach(e => e.style.visibility = 'hidden'));
     const buf = await page.screenshot({ clip: { x: band.left, y: y0, width: band.width, height: h } });
-    await ev(page, () => document.querySelectorAll('.dm-sign').forEach(e => e.style.visibility = ''));
+    await ev(page, () => document.querySelectorAll('.dm-sign, .dm-gate').forEach(e => e.style.visibility = ''));
     const m = await ev(page, async ([b64, band]) => {
       const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
       const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
@@ -205,6 +205,31 @@ for (const lv of [0, 4, 9, 37, 120, 499]) {
     const cv2 = await currentVisible(page);
     check('393: after a win the next platform is on screen and marked fresh', cv2.ok && await ev(page, () => document.querySelector('.dm-pad[data-li="5"]').classList.contains('fresh')));
   }
+  await page.context().close();
+}
+
+// ---------- worlds open one at a time; testers can open the whole map ----------
+{
+  const page = await open({ width: 393, height: 852 }, base(13, { mapAll: 0 }));
+  const st = await ev(page, () => {
+    const pads = [...document.querySelectorAll('.dm-pad')].map(b => +b.dataset.li);
+    const fog = document.querySelector('.dm-slot.locked .dm-fog-card');
+    const sc = $('#mapScroll');
+    return { maxPad: Math.max(...pads), slots: document.querySelectorAll('.dm-slot').length, fog: !!fog && /Світ 3/.test(fog.textContent) && /світ 2/.test(fog.textContent),
+      gates: document.querySelectorAll('.dm-gate:not(.up)').length, ups: document.querySelectorAll('.dm-gate.up').length, top: sc.scrollHeight };
+  });
+  check('locked: the map ends with the current world (levels 1–20) and the next world under a fog with a padlock', st.maxPad === 19 && st.slots === 5 && st.fog, JSON.stringify(st));
+  check('a dark gate with a line marks both borders between worlds on the map (1→2, 2→3), in both pictures', st.gates === 2 && st.ups === 2, JSON.stringify(st));
+  await ev(page, () => { save.level = 20; persist(); showMap({ from: 'win' }); });
+  await page.waitForTimeout(300);
+  check('passing world 2 opens world 3 (its platforms appear, world 4 is fogged)', await ev(page, () => !!document.querySelector('.dm-pad[data-li="29"]') && !document.querySelector('.dm-pad[data-li="30"]') && /Світ 4/.test(document.querySelector('.dm-fog-card').textContent)));
+  await ev(page, () => { save.level = 13; persist(); showMap({ from: 'other' }); openSettings(); });
+  await page.waitForTimeout(200);
+  await page.click('#tMapAll'); await page.waitForTimeout(250);
+  check('tester toggle «Вся мапа» opens all 50 worlds', await ev(page, () => document.querySelectorAll('.dm-pad').length === LEVELS.length && !document.querySelector('.dm-fog')));
+  // platforms keep alternating sides across the seam inside a world (part b is mirrored)
+  const alt = await ev(page, () => [4, 5, 14, 15].map(li => { const r = document.querySelector(`.dm-pad[data-li="${li}"]`).getBoundingClientRect(); return r.left + r.width / 2 > innerWidth / 2 ? 'R' : 'L'; }).join(''));
+  check('platforms alternate across the seam between the two pictures of a world (5→6, 15→16)', alt === 'RLRL', alt);
   await page.context().close();
 }
 
