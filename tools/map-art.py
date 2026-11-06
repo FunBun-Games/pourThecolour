@@ -314,41 +314,152 @@ def crop_plan(img, free):
     return cut, tapers
 
 
-def process(name, debug):
+# ---------- road ends: transplant real road from between the picture's own platforms ----------
+# Every picture has its platforms right, left, right, left, right from the bottom (p1..p5), and the second picture of
+# each world is shown mirrored, so at every seam the road must go from a right platform to a left one — exactly like
+# the road from p3 (right) to p4 (left) inside the picture. So the ends are rebuilt from the picture itself:
+#   top:    the road just above p3, up to halfway to p4, is moved onto p5 (aligned on the platform);
+#   bottom: the road just below p3, down to halfway to p2, is moved under p1.
+# The picture is then cut at those halfway rows (plus half the overlap band). Two neighbouring pictures meet at the
+# middle of a right→left stretch, made of two halves of real drawn road: the same length and shape as between levels.
+# Only the middle of the width (the road and the floor around it) is moved; the props at the sides stay as drawn.
+# Finally the road in the band is nudged onto one common line so both pictures' roads lie on top of each other.
+X0, X1, XF = 220, 800, 60           # moved columns and their soft side edges
+JF = 26                              # soft rows where the moved road joins the platform's own road
+CANON = {'x': 512.0, 'k': None}      # the common road line at the seam: x at the seam, px sideways per row (set in main)
+
+
+def dash_line(rgb, y0, y1, x_hint):
+    """Fit the road's centre line x = a + k·(y − ymid) from the cyan dashes in rows y0..y1 near x_hint."""
+    ys, xs = [], []
+    for y in range(max(0, y0), min(rgb.shape[0], y1)):
+        row = rgb[y]
+        m = (row[:, 1] > 190) & (row[:, 2] > 225) & (row[:, 0] < 200)
+        m[:X0] = False; m[X1:] = False
+        xx = np.nonzero(m)[0]
+        if len(xx) >= 3:
+            ys.append(y); xs.append(np.median(xx))
+    if len(ys) < 8: return None
+    ys, xs = np.array(ys, float), np.array(xs, float)
+    keep = np.abs(xs - x_hint) < 160
+    for _ in range(3):
+        if keep.sum() < 6: return None
+        k, a = np.polyfit(ys[keep], xs[keep], 1)
+        keep = np.abs(xs - (a + k * ys)) < 22
+    ymid = (y0 + y1) / 2
+    return a + k * ymid, k, ymid
+
+
+def transplant(img, pads):
+    """Rebuild both ends from the picture's own p3→p4 and p2→p3 road; returns the new (cropped) image, the seam
+    rows (top, bottom) in it and what was moved."""
+    rgb = np.asarray(img.convert('RGB')).astype(np.float32)
+    p1, p2, p3, p4, p5 = pads                       # bottom first
+    cy = lambda p: p['cy']
+    half_top = (cy(p3) - cy(p4)) / 2                # p5 → seam above it
+    half_bot = (cy(p2) - cy(p3)) / 2                # p1 → seam below it
+    ov2 = OV_PX / 2
+    top_cut = int(round(cy(p5) - half_top - ov2))
+    bot_cut = int(round(cy(p1) + half_bot + ov2))
+    if top_cut < 0 or bot_cut > H:
+        raise SystemExit('the end platforms are too close to the edges to rebuild the road')
+    out = rgb.copy()
+    cols = np.arange(W, dtype=np.float32)
+    wx = np.clip(np.minimum(cols - X0, X1 - cols) / XF, 0, 1)
+    wx = wx * wx * (3 - 2 * wx)
+    def move(dst_rows, dy, dx, join_row, upward):
+        for y in dst_rows:
+            sy = y + dy
+            if not (0 <= sy < H): continue
+            src = np.interp(cols - dx, cols, cols)                     # shift the row sideways by dx
+            row = np.stack([np.interp(src, cols, rgb[int(sy), :, c]) for c in range(3)], 1)
+            d = (join_row - y) if upward else (y - join_row)            # rows away from the platform
+            wy = smoothstep(np.clip(d / JF, 0, 1))
+            w = (wx * wy)[:, None]
+            out[y] = out[y] * (1 - w) + row * w
+    # top: rows above p5's button ← rows above p3's button
+    j5 = int(p5['cap'][1]) + 6
+    move(range(top_cut, j5), int(round(cy(p3) - cy(p5))), p5['cx'] - p3['cx'], j5, True)
+    # bottom: rows below p1's platform ← rows below p3's platform
+    b1 = int(p1['box'][1] + p1['box'][3]) - 10
+    move(range(b1, bot_cut), int(round(cy(p3) - cy(p1))), p1['cx'] - p3['cx'], b1, False)
+    new = out[top_cut:bot_cut]
+    return new, {'cut': {'top': top_cut, 'bottom': H - bot_cut}}
+
+
+def align_band(rgb, seam_y, sign, x_hint):
+    """Shift the rows around the seam so the road's centre lies on the common line x = 512 + sign·k·(y − seam)."""
+    fit = dash_line(rgb, int(seam_y - 70), int(seam_y + 70), x_hint)
+    if fit is None: return rgb, None
+    a, k, ymid = fit
+    # an unreliable fit (props next to the road) keeps only the offset at the seam, with the common direction
+    if abs(sign * k - CANON['k']) > 1.2: k = sign * CANON['k']; a = a  # noqa
+    out = rgb.copy()
+    cols = np.arange(W, dtype=np.float32)
+    T = 70                                                            # rows over which the nudge fades out
+    for y in range(max(0, int(seam_y - ov_half() - T)), min(rgb.shape[0], int(seam_y + ov_half() + T))):
+        target = CANON['x'] + sign * CANON['k'] * (y - seam_y)
+        cur = a + k * (y - ymid)
+        dist = max(0.0, abs(y - seam_y) - ov_half())
+        w = 1 - smoothstep(min(1.0, dist / T))
+        dx = float(np.clip(target - cur, -36, 36)) * w
+        if abs(dx) < 0.3: continue
+        # shift the middle of the row; the sides stay put (soft)
+        knots_dst = [0, X0 - XF, 512 + dx, X1 + XF, W - 1]
+        knots_src = [0, X0 - XF, 512, X1 + XF, W - 1]
+        src = np.interp(cols, knots_dst, knots_src)
+        out[y] = np.stack([np.interp(src, cols, rgb[y, :, c]) for c in range(3)], 1)
+    return out, (a, k)
+
+
+def ov_half(): return OV_PX / 2
+
+
+def prepare(name):
+    """First pass: rebuild the ends and measure the road's direction at both seams."""
     img = Image.open(os.path.join(SRC, name + '.png')).convert('RGB')
     if img.size != (W, H0): img = img.resize((W, H0), Image.LANCZOS)
     global H
     H = H0
-    first = platforms(img)            # where the platforms are decides how much empty road there is at each end
-    free = {'top': min(p['box'][1] for p in first) - 8, 'bottom': H - max(p['box'][1] + p['box'][3] for p in first) - 8}
-    # crop the empty ends: keep only the band + the bend it needs, so the road between the last platform of one
-    # picture and the first of the next is about as long as between two platforms of one picture
-    cut, tapers = crop_plan(img, free)
-    img = img.crop((0, cut['top'], W, H - cut['bottom']))
-    H = img.size[1]
-    limits = {e: free[e] - cut[e] + 8 for e in free}
-    bent, road = bend_ends(img, limits, tapers)
+    pads = platforms(img)
+    new, info = transplant(img, pads)
+    hh = new.shape[0]
+    top_seam, bot_seam = ov_half(), hh - ov_half()
+    ft = dash_line(new, int(top_seam - 30), int(top_seam + 90), 512)
+    fb = dash_line(new, int(bot_seam - 90), int(bot_seam + 30), 512)
+    return {'name': name, 'img': new, 'info': info, 'ft': ft, 'fb': fb}
+
+
+def process(prep, debug):
+    global H
+    name, rgb = prep['name'], prep['img']
+    H = rgb.shape[0]
+    rgb, at = align_band(rgb, ov_half(), +1, prep['ft'][0] if prep['ft'] else 512)
+    rgb, ab = align_band(rgb, H - ov_half(), -1, prep['fb'][0] if prep['fb'] else 512)
+    bent = Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8))
     pads = platforms(bent)
-    # check: after bending, both ends are in the middle at the common width
-    check = bend_check(bent)
     out_h = round(OUT_W * H / W)
     kb, q, out_w = save_webp(bent.resize((OUT_W, out_h), Image.LANCZOS), os.path.join(OUT, name + '.webp'))
     out_h = round(out_w * H / W)
+    cut = prep['info']['cut']
     meta = {
         'name': name, 'w': W, 'h': H, 'aspect': round(H / W, 5), 'overlap': round(OV_PX / H, 5), 'cut': cut,
-        'road': {'before': road, 'after': check, 'hw': round(ROAD_HW / W, 4)},
+        'seam': {'top': [round(v, 3) for v in at] if at else None, 'bottom': [round(v, 3) for v in ab] if ab else None, 'canon': CANON},
         'pads': [{'x': round(p['cx'] / W, 4), 'y': round(p['cy'] / H, 4), 'rx': round(p['rx'] / W, 4), 'ry': round(p['ry'] / H, 4),
                   'cap': [round(p['cap'][0] / W, 4), round(p['cap'][1] / H, 4), round(p['cap'][2] / W, 4), round(p['cap'][3] / H, 4)],
                   'hit': [round(p['box'][0] / W, 4), round(p['box'][1] / H, 4), round(p['box'][2] / W, 4), round(p['box'][3] / H, 4)]} for p in pads],
         'webp': {'w': out_w, 'h': out_h, 'kb': round(kb, 1), 'quality': q},
     }
     with open(os.path.join(OUT, name + '.json'), 'w') as f: json.dump(meta, f, indent=1)
-    print(f"{name}: road in x={road['bottom']['x'] * W:.0f} hw={road['bottom']['hw'] * W:.0f} → {check['bottom']['x'] * W:.0f}/{check['bottom']['hw'] * W:.0f}; "
-          f"out x={road['top']['x'] * W:.0f} hw={road['top']['hw'] * W:.0f} → {check['top']['x'] * W:.0f}/{check['top']['hw'] * W:.0f}; "
-          f"cut {cut['top']}/{cut['bottom']}, taper {tapers['top']}/{tapers['bottom']}; pads " + ' '.join(f"({p['cx']:.0f},{p['cy']:.0f})" for p in pads) + f"; webp {kb:.0f} KB q{q}")
+    sp = [pads[i]['cy'] - pads[i + 1]['cy'] for i in range(4)]
+    print(f"{name}: cut {cut['top']}/{cut['bottom']} → h {H}; seam road top {fmt(at)} bottom {fmt(ab)}; "
+          f"platform steps {' '.join(f'{v:.0f}' for v in sp)}, ends {pads[4]['cy']:.0f}/{H - pads[0]['cy']:.0f}; webp {kb:.0f} KB q{q}")
     if debug: draw_debug(bent, pads, name)
     H = H0
     return meta
+
+
+def fmt(v): return f"x={v[0]:.0f} k={v[1]:.2f}" if v else '—'
 
 
 def bend_check(img):
@@ -390,10 +501,18 @@ def main():
     debug = '--debug' in sys.argv
     names = args or sorted(f[:-4] for f in os.listdir(SRC) if f.endswith('.png'))
     os.makedirs(OUT, exist_ok=True)
-    metas, failed = [], []
+    metas, failed, preps = [], [], []
     for n in names:
-        try: metas.append(process(n, debug))
+        try: preps.append(prepare(n))
         except SystemExit as e: failed.append(n); print(f'{n}: FAILED — {e}')
+    # the common road line at the seams: the typical direction of the road there (top ends slope one way, bottom
+    # ends the other; mirrored, every seam gets the same line)
+    ks = [p['ft'][1] for p in preps if p['ft']] + [-p['fb'][1] for p in preps if p['fb']]
+    CANON['k'] = float(np.median(ks)) if ks else 1.0
+    print(f'seam road: x = 512 at the seam, {CANON["k"]:.2f} px sideways per row')
+    for pr in preps:
+        try: metas.append(process(pr, debug))
+        except SystemExit as e: failed.append(pr['name']); print(f"{pr['name']}: FAILED — {e}")
     if failed: print('not prepared (the game keeps their earlier version if any):', ', '.join(failed))
     # the game's road, bottom to top: world N uses <N>-a then <N>-b; a missing picture repeats the pilot,
     # mirrored on every other slot so neighbours never look the same (see screens: MAP_ART)

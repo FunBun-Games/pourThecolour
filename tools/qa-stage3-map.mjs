@@ -99,6 +99,7 @@ async function tapAll(page, tag, cur) {
 
 // seam: screenshot the band where picture k meets picture k+1 and look at the road rims row by row (in the page)
 async function seams(page, tag, n = 4) {
+  const vw = await ev(page, () => Math.min(innerWidth, 640)), band6 = () => vw * 0.06;
   const res = [];
   for (let k = 0; k < n; k++) {
     const band = await ev(page, k => {
@@ -111,7 +112,8 @@ async function seams(page, tag, n = 4) {
     }, k);
     await page.waitForTimeout(120);
     // the band: from a bit above the upper picture's faded bottom edge to a bit below the lower picture's top
-    const y0 = Math.max(0, band.top - 30), h = band.ov + 60;
+    // a taller strip: 70 px of road below and above the band, to fit the dash line on each side of the seam
+    const PAD = 70, y0 = Math.max(0, band.top - PAD), h = band.ov + 2 * PAD;
     // hide the world sign (it sits on world seams) so the road itself is measured
     await ev(page, () => document.querySelectorAll('.dm-sign, .dm-gate').forEach(e => e.style.visibility = 'hidden'));
     const buf = await page.screenshot({ clip: { x: band.left, y: y0, width: band.width, height: h } });
@@ -122,40 +124,48 @@ async function seams(page, tag, n = 4) {
       const g = c.getContext('2d'); g.drawImage(img, 0, 0);
       const sc = img.width / band.width, d = g.getImageData(0, 0, c.width, c.height).data;
       const lum = (x, y) => { const i = (y * c.width + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.55 + d[i + 2] * 0.15; };
-      const hw = band.hw * sc, win = Math.round(14 * sc);
-      // the seam road is a gentle diagonal (tools/map-art.py: SLOPE 0.5 over the 60-row band → ±15 of 1024 around the
-      // middle); the lower picture of an even seam is unmirrored (512−15 at its top edge → 512+15 at the band's bottom)
-      const S = 15 / 1024 * band.width * sc, dir = band.k % 2 === 0 ? 1 : -1;
-      let rimRows = 0, rows = 0; const diffs = [], diffsOut = [];
-      const b0 = Math.round(30 * sc) + 2, b1 = Math.round((30 + band.ov) * sc) - 2;   // the overlap band itself
-      for (let y = 1; y < c.height; y++) {
-        let ok = true;
-        const inBand = y >= b0 && y <= b1;
-        const z = Math.min(1, Math.max(0, (y - b0) / Math.max(1, b1 - b0)));
-        const cx = c.width / 2 + dir * (-S + 2 * S * z);
-        for (const e of [cx - hw, cx + hw]) {
-          // a rim: a clear brightness peak near where it should be (the deck between the rims has the bright dashes,
-          // so each rim is compared with its own neighbourhood, not with the road)
-          const vals = [];
-          let mx = -1, at = 0;
-          for (let x = Math.round(e - win); x <= Math.round(e + win); x++) { const v = lum(x, y); vals.push(v); if (v > mx) { mx = v; at = x; } }
-          vals.sort((a, b) => a - b);
-          if (mx - vals[vals.length >> 1] < 12 || Math.abs(at - e) > win * 0.6) ok = false;
+      const hw = band.hw * sc;
+      // the road's glowing centre dashes: per row, the middle of the cyan pixels in the middle of the picture
+      const pts = [];
+      const PAD = band.PAD, seamY = (PAD + band.ov / 2) * sc;
+      for (let y = 0; y < c.height; y++) {
+        const xs = [];
+        for (let x = Math.round(c.width * 0.18); x < Math.round(c.width * 0.82); x++) {
+          const i = (y * c.width + x) * 4;
+          if (d[i + 1] > 180 && d[i + 2] > 215 && d[i] < 200) xs.push(x);
         }
-        if (inBand) { rows++; if (ok) rimRows++; }
+        if (xs.length >= 2 && xs[xs.length - 1] - xs[0] < 40 * sc) pts.push([y, (xs[0] + xs[xs.length - 1]) / 2]);
+      }
+      // a line through the dashes below the seam and one above it; at the seam they must meet, in the same direction
+      const fit = P => { if (P.length < 4) return null; const n = P.length, my = P.reduce((a, p) => a + p[0], 0) / n, mx = P.reduce((a, p) => a + p[1], 0) / n;
+        let sxy = 0, syy = 0; for (const [y, x] of P) { sxy += (y - my) * (x - mx); syy += (y - my) ** 2; } const k = syy ? sxy / syy : 0; return { at: y => mx + k * (y - my), k }; };
+      const lo = fit(pts.filter(p => p[0] > seamY + band.ov / 2 * sc)), hi = fit(pts.filter(p => p[0] < seamY - band.ov / 2 * sc));
+      const gap = lo && hi ? Math.abs(lo.at(seamY) - hi.at(seamY)) / sc : 99, turn = lo && hi ? Math.abs(Math.atan(lo.k) - Math.atan(hi.k)) * 180 / Math.PI : 99;
+      const diffs = [];
+      for (let y = 1; y < c.height; y++) {
         // row-to-row change across the road (a hard seam would make one row jump)
         let dsum = 0, dn = 0;
         for (let x = Math.round(c.width / 2 - hw * 1.3); x <= Math.round(c.width / 2 + hw * 1.3); x += 2) { dsum += Math.abs(lum(x, y) - lum(x, y - 1)); dn++; }
         diffs.push(dsum / dn);
       }
       const sorted = [...diffs].sort((a, b) => a - b), p90 = sorted[Math.floor(sorted.length * 0.9)], max = sorted[sorted.length - 1];
-      return { rimShare: rimRows / rows, max: Math.round(max), p90: Math.round(p90) };
-    }, [buf.toString('base64'), band]);
+      return { gap: Math.round(gap * 10) / 10, turn: Math.round(turn), max: Math.round(max), p90: Math.round(p90) };
+    }, [buf.toString('base64'), { ...band, PAD }]);
     fs.writeFileSync(path.join(out, `seam-${tag}-${k}.png`), buf);
     res.push(m);
   }
-  const okRims = res.every(m => m.rimShare >= 0.75), okEdge = res.every(m => m.max <= Math.max(40, m.p90 * 3));
-  check(`${tag}: seams — in the overlap band the road's two rims run on the seam's diagonal (≥ 75% of rows; the cross-fade softens a few) (${n} seams)`, okRims, res.map(m => (m.rimShare * 100).toFixed(0) + '%').join(' '));
+  // the step from the last platform of a picture to the first of the next one is like a step inside a picture
+  const steps = await ev(page, () => {
+    const c = li => { const r = document.querySelector(`.dm-pad[data-li="${li}"]`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const st = (a, b) => { const [x1, y1] = c(a), [x2, y2] = c(b); return [Math.abs(x2 - x1), y1 - y2]; };
+    const inside = [], across = [];
+    for (let li = 0; li < 29; li++) (li % 5 === 4 ? across : inside).push(st(li, li + 1));
+    const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+    const iy = med(inside.map(v => v[1])), ix = med(inside.map(v => v[0]));
+    return { iy: Math.round(iy), ix: Math.round(ix), across: across.map(v => [Math.round(v[0]), Math.round(v[1])]), ok: across.every(([dx, dy]) => dy > iy * 0.8 && dy < iy * 1.25 && dx > ix * 0.75 && dx < ix * 1.25) };
+  });
+  check(`${tag}: seams — the step between pictures matches the step between levels (up ${steps.iy}px, across ${steps.ix}px)`, steps.ok, JSON.stringify(steps.across));
+  const okEdge = res.every(m => m.max <= Math.max(40, m.p90 * 3));
   check(`${tag}: seams — no hard edge across the road (max row change ≤ 3× the usual)`, okEdge, res.map(m => `${m.max}/${m.p90}`).join(' '));
 }
 

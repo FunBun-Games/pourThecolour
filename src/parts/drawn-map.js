@@ -82,10 +82,10 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-sign.world-sign { z-index: 4; pointer-events: none; }
 /* gate between worlds: a dark band across the seam (over both pictures and the side fill, under the marks) */
 .dm-gate { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none;
-  top: calc(var(--u) * (var(--ov) * 0.5 - 230) * 1px); height: calc(var(--u) * 460px);
-  background: linear-gradient(180deg, transparent, rgba(3, 5, 20, 0.72) 22%, rgba(3, 5, 20, 0.95) 40%, rgba(3, 5, 20, 0.95) 60%, rgba(3, 5, 20, 0.72) 78%, transparent); }
+  top: calc(var(--u) * (var(--ov) * 0.5 - 75) * 1px); height: calc(var(--u) * 150px);
+  background: linear-gradient(180deg, transparent, rgba(3, 5, 20, 0.75) 30%, rgba(3, 5, 20, 0.92) 50%, rgba(3, 5, 20, 0.75) 70%, transparent); }
 /* the upper picture's half: the same band, measured from its bottom edge */
-.dm-gate.up { top: auto; bottom: calc(var(--u) * (var(--ov) * 0.5 - 230) * 1px); }
+.dm-gate.up { top: auto; bottom: calc(var(--u) * (var(--ov) * 0.5 - 75) * 1px); }
 .dm-gate.up::after { display: none; }
 /* a thin glowing line across the middle of the gate: the border of the next world */
 .dm-gate::after { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; height: calc(var(--u) * 6px); margin-top: calc(var(--u) * -3px); border-radius: 99px;
@@ -104,10 +104,10 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-end.head.locked::after { content: ""; position: absolute; inset: 0; background: rgba(4, 6, 24, 0.96); }
 .dm-sign.bottom { bottom: calc(var(--u) * 26px); }
 .dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ov) * 0.5px); transform: translateY(-50%); z-index: 4; }
-.dm-sign.top { max-width: 52%; box-sizing: border-box; }
+.dm-sign.top { max-width: 62%; box-sizing: border-box; padding: 3px 10px 3px 4px; gap: 6px; font-size: 0.74rem; border-width: 2px; }
+.dm-sign.top .world-num { padding: 2px 7px; font-size: 0.64rem; }
 .dm-sign.top .world-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.dm-sign.top.left { left: 3%; right: auto; }
-.dm-sign.top.right { left: auto; right: 3%; }
+.dm-sign.top.left, .dm-sign.top.right { left: 50%; right: auto; transform: translate(-50%, -50%); }
 @media (prefers-reduced-motion: reduce) { .dm-pin, .dm-glow { animation: none; } }
 </style>`);
 
