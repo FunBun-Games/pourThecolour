@@ -42,12 +42,15 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 #mapWorlds.wide .dm-slot.fade .dm-art { -webkit-mask-image: var(--dm-hfade), var(--dm-vfade); mask-image: var(--dm-hfade), var(--dm-vfade); -webkit-mask-composite: source-in; mask-composite: intersect; }
 /* the mirrored continuation below level 1 and above the last level */
 .dm-end { position: relative; flex: none; width: 100%; overflow: hidden; pointer-events: none; }
-.dm-end.foot { height: var(--dm-foot, 300px); }
+.dm-end.foot { height: calc(var(--dm-foot, 300px) + 56px); }
 .dm-end.head { height: var(--dm-head, 80px); }
-.dm-end .dm-col { height: calc(var(--u) * var(--h) * 1px); bottom: auto; }
-.dm-end.foot .dm-col { top: 0; transform: scaleY(-1); transform-origin: 50% 0; top: calc(var(--u) * var(--h) * 1px); }
-.dm-end.head .dm-col { top: auto; bottom: calc(var(--u) * var(--h) * 1px); transform: scaleY(-1); transform-origin: 50% 100%; }
-.dm-end .dm-fill { inset: 0 calc((var(--cw) - 100vw) / 2 - 3%); }
+/* below level 1 and above the last level: a deep blue shade with a soft cyan glow (no mirrored picture) */
+.dm-end.foot { background: radial-gradient(70% 55% at 50% 0%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(180deg, #13245e, #0b1640 45%, #070d2a); }
+.dm-end.head { background: radial-gradient(70% 55% at 50% 100%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(0deg, #13245e, #0b1640 45%, #070d2a); }
+/* the picture next to it fades into the shade */
+.dm-shade { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; height: calc(var(--u) * 130px); }
+.dm-shade.bottom { bottom: 0; background: linear-gradient(180deg, transparent, rgba(19, 36, 94, 0.6) 55%, #13245e); }
+.dm-shade.top { top: 0; background: linear-gradient(0deg, transparent, rgba(19, 36, 94, 0.6) 55%, #13245e); }
 /* platform cap recoloured from the picture itself */
 .dm-cap { position: absolute; border-radius: 50% / 42%; background-repeat: no-repeat; pointer-events: none;
   background-size: calc(var(--u) * ${DM_W}px) calc(var(--u) * var(--h) * 1px);
@@ -104,7 +107,7 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-fog-lock svg { width: 20px; height: 20px; fill: #e3e8f6; }
 .dm-slot.locked .dm-fill { filter: blur(14px) brightness(0.35) saturate(0.6); }
 .dm-end.head.locked::after { content: ""; position: absolute; inset: 0; background: rgba(4, 6, 24, 0.96); }
-.dm-sign.bottom { bottom: calc(var(--u) * 26px); }
+.dm-sign.bottom { bottom: auto; top: 100%; margin-top: 12px; }   /* in the blue shade under the first picture */
 .dm-sign.top { bottom: auto; top: calc(var(--u) * var(--ovt) * 0.5px); transform: translateY(-50%); z-index: 4; }
 .dm-sign.top { max-width: 62%; box-sizing: border-box; padding: 3px 10px 3px 4px; gap: 6px; font-size: 0.74rem; border-width: 2px; }
 .dm-sign.top .world-num { padding: 2px 7px; font-size: 0.64rem; }
@@ -148,9 +151,7 @@ function dmUnit() {
   box.style.setProperty('--dm-foot', foot + 'px');
 }
 function dmEnd(k, kind) {
-  const { name, flip } = dmArtFor(k), A = MAPART.art[name], h = Math.round(DM_W * A.aspect);
-  return `<div class="dm-end ${kind}" style="--h:${h}" aria-hidden="true"><div class="dm-col"><div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>` +
-    `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div></div></div>`;
+  return `<div class="dm-end ${kind}" aria-hidden="true"></div>`;
 }
 
 function renderMapDrawn() {
@@ -172,7 +173,8 @@ function renderMapDrawn() {
       ? `<div class="dm-patch" style="left:${(seamAbove.x / DM_W * 100).toFixed(3)}%;width:${(seamAbove.w / DM_W * 100).toFixed(3)}%;top:calc(var(--u) * ${seamAbove.y}px);height:calc(var(--u) * ${seamAbove.h}px);background-image:url(${seamAbove.data})"></div>` : '';
     const fade = k < count - 1 ? ' fade' : '';
     let inner = `<div class="dm-art dm-img-${name}${flip ? ' flip' : ''}"></div>` + patch;
-    const fill = `<div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>`;
+    const fill = `<div class="dm-fill dm-img-${name}${flip ? ' flip' : ''}"></div>` +
+      (k === 0 ? '<div class="dm-shade bottom"></div>' : '') + (k === count - 1 && lockedK < 0 ? '<div class="dm-shade top"></div>' : '');
     // the seam into the next world is darkened (a gate between worlds)
     // (each picture paints only inside itself, so both pictures at the seam carry their half of the gate)
     const gate = (k % 2 === 1 && k < count - 1 ? '<div class="dm-gate" aria-hidden="true"></div>' : '') +
