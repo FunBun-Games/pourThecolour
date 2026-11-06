@@ -116,14 +116,27 @@ html[data-style="b"] .world.has-art .b-props { display: none; }
 html[data-style="b"] .b-props { display: block; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
 html[data-style="b"] .world .road { z-index: 1; }
 html[data-style="b"] .world-bg .biome-art { display: none; }
-.road-edge, .road-dash { display: none; }
-html[data-style="b"] .road-edge { display: inline; fill: none; stroke: #1d2230; stroke-width: 40; stroke-linecap: round; }
-html[data-style="b"] .road-base { stroke: #dfe7f7; stroke-width: 32; stroke-dasharray: none; filter: drop-shadow(0 6px 0 #7b88ab); }
-html[data-style="b"] .road-dash { display: inline; fill: none; stroke: rgba(80, 120, 200, 0.55); stroke-width: 4; stroke-dasharray: 10 12; stroke-linecap: round; }
-html[data-style="b"] .road-done { stroke: #36c6ff; stroke-width: 5; stroke-dasharray: 10 12; opacity: 1; filter: drop-shadow(0 0 5px #36c6ff); }
-html[data-style="b"] .node { border: 3px solid var(--out); background: radial-gradient(circle at 50% 28%, #d4f1ff, #3fb0ff 50%, #1d6fe0); color: #fff; text-shadow: 0 2px 0 var(--out); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 4px #ffcd3c, 0 0 0 7px var(--out), 0 8px 0 4px var(--out); }
-html[data-style="b"] .node.current { background: radial-gradient(circle at 50% 30%, #fff3b0, #ffcd3c 55%, #f0950c); color: var(--out); text-shadow: none; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.15), 0 0 0 4px #fff, 0 0 0 7px var(--out), 0 8px 0 4px var(--out), 0 0 30px 10px rgba(255, 205, 60, 0.5); }
-html[data-style="b"] .node.locked { background: radial-gradient(circle at 50% 28%, #c2cbe2, #7f8db2 55%, #56628a); color: rgba(255,255,255,0.6); box-shadow: inset 0 -6px 0 rgba(0,0,0,0.2), 0 0 0 3px var(--out), 0 6px 0 3px var(--out); }
+/* 3D road (B): the same path stroked in layers — ground shadow, a side wall shifted down, a navy outline,
+   a light rim, a dark slate deck with a sheen down the middle, glowing dashes; the travelled part glows brighter */
+.road-3d { display: none; }
+html[data-style="b"] .road-3d { display: inline; }
+html[data-style="b"] .road-base { display: none; }
+html[data-style="b"] .road-3d path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+html[data-style="b"] .r-shadow { stroke: rgba(6, 8, 30, 0.45); stroke-width: 50; transform: translateY(18px); }
+html[data-style="b"] .r-wall-o { stroke: #1d2230; stroke-width: 46; transform: translateY(12px); }
+html[data-style="b"] .r-wall { stroke: #303c78; stroke-width: 40; transform: translateY(12px); }
+html[data-style="b"] .r-wall-hi { stroke: #3d4b8f; stroke-width: 40; transform: translateY(6px); }
+html[data-style="b"] .r-top-o { stroke: #1d2230; stroke-width: 46; }
+html[data-style="b"] .r-rim { stroke: #9fb1ea; stroke-width: 40; }
+html[data-style="b"] .r-deck { stroke: #4a5890; stroke-width: 31; }
+html[data-style="b"] .r-sheen { stroke: #5d6db0; stroke-width: 15; }
+html[data-style="b"] .r-dash { stroke: rgba(130, 225, 255, 0.55); stroke-width: 4; stroke-dasharray: 12 12; }
+html[data-style="b"] .road-done { stroke: #4fe0ff; stroke-width: 5; stroke-dasharray: 12 12; opacity: 1; filter: drop-shadow(0 0 4px #29b6ff) drop-shadow(0 0 8px rgba(41, 182, 255, 0.7)); }
+html[data-style="b"] .node { border: 3px solid var(--out); background: radial-gradient(circle at 50% 28%, #d4f1ff, #3fb0ff 50%, #1d6fe0); color: #fff; text-shadow: 0 2px 0 var(--out); box-shadow: inset 0 4px 0 rgba(255,255,255,0.45), inset 0 -6px 0 rgba(0,0,0,0.22), 0 0 0 4px #ffcd3c, 0 0 0 7px var(--out), 0 9px 0 4px #c27d0c, 0 9px 0 7px var(--out), 0 16px 10px 6px rgba(0,0,0,0.4); }
+html[data-style="b"] .node.current { background: radial-gradient(circle at 50% 30%, #fff3b0, #ffcd3c 55%, #f0950c); color: var(--out); text-shadow: none; box-shadow: inset 0 4px 0 rgba(255,255,255,0.6), inset 0 -6px 0 rgba(0,0,0,0.15), 0 0 0 4px #fff, 0 0 0 7px var(--out), 0 9px 0 4px #d0d8ee, 0 9px 0 7px var(--out), 0 0 34px 14px rgba(255, 205, 60, 0.55); animation: none; }
+html[data-style="b"] .node.locked { background: radial-gradient(circle at 50% 28%, #c2cbe2, #7f8db2 55%, #56628a); color: rgba(255,255,255,0.6); box-shadow: inset 0 4px 0 rgba(255,255,255,0.35), inset 0 -6px 0 rgba(0,0,0,0.22), 0 0 0 3px var(--out), 0 8px 0 0 #454f73, 0 8px 0 3px var(--out), 0 14px 8px 4px rgba(0,0,0,0.35); }
+html[data-style="b"] .you-pin { width: 28px; height: 28px; margin-left: -14px; top: -42px; background: radial-gradient(circle at 50% 50%, #fff 0 22%, #ff4b5c 26%); border: 3px solid var(--out); box-shadow: 2px 3px 0 rgba(0,0,0,0.3); }
+html[data-style="b"] .node.boss .you-pin { top: -54px; }
 html[data-style="b"] .node.boss { background: radial-gradient(circle at 50% 30%, #ffa0a8, #ef3045 55%, #a80f22); }
 html[data-style="b"] .node.boss.locked { filter: saturate(0.7) brightness(0.85); }
 html[data-style="b"] .node-stars i.on { background: #ffcd3c; filter: drop-shadow(0 1px 0 var(--out)); }
@@ -189,10 +202,11 @@ const MAP_ART = ['__ART:map/world1.webp__'];
 function decorateMapB() {
   document.querySelectorAll('#mapWorlds .world').forEach((w, k) => {
     const road = w.querySelector('.road');
-    if (road && !road.querySelector('.road-edge')) {
-      const base = road.querySelector('.road-base');
-      const edge = base.cloneNode(); edge.setAttribute('class', 'road-edge'); road.insertBefore(edge, base);
-      const dash = base.cloneNode(); dash.setAttribute('class', 'road-dash'); base.after(dash);
+    if (road && !road.querySelector('.road-3d')) {
+      const base = road.querySelector('.road-base'), d = base.getAttribute('d');
+      const layers = ['r-shadow', 'r-wall-o', 'r-wall', 'r-wall-hi', 'r-top-o', 'r-rim', 'r-deck', 'r-sheen', 'r-dash']
+        .map(c => `<path class="${c}" d="${d}" vector-effect="non-scaling-stroke"/>`).join('');
+      base.insertAdjacentHTML('beforebegin', `<g class="road-3d">${layers}</g>`);
     }
     const art = MAP_ART[k] || MAP_ART[0];
     if (art && !w.classList.contains('has-art')) {
