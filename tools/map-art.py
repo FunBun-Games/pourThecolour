@@ -28,6 +28,8 @@ ROAD_HW = 80               # common half-width of the road (rim centre to rim ce
 TAPER = 90                 # after the overlap band the bend eases off over this many rows (less if a platform is nearer)
 OUT_W = 864                # width of the shipped WebP (phones show it at 320–640 css px; painterly art holds up when upscaled)
 MAX_KB = 120
+CAP_HW = 0.63               # the tallest a platform's button can look (height / width) in the 3/4 view
+CAP_FIX = (0.59, 0.445)    # a clean button's height / width and its flat top's ry / rx (measured on clean ones)
 OVERLAP = 0.09             # the next picture covers this share of the picture height and fades in (the seam)
 
 
@@ -44,15 +46,19 @@ def road_rows(rgb, rows, guess):
     from scipy.signal import find_peaks
     lum = rgb[..., 0] * 0.3 + rgb[..., 1] * 0.55 + rgb[..., 2] * 0.15
     lum = nd.uniform_filter1d(lum, 5, axis=0)          # average a few rows: less noise, thin rims survive
-    prof0 = nd.gaussian_filter1d(lum[rows[:8]].mean(0), 1)
-    pk, pr = find_peaks(prof0, prominence=40)   # strong lines only: far roads have a faint inner rim next to the glow
+    # the rims are found on an average of rows near the edge (some pictures fade the rims right at the edge, so look
+    # a bit deeper), strong lines first (far roads have a faint inner rim next to the glow), weaker if none
+    prof0 = nd.gaussian_filter1d(lum[rows[:40]].mean(0), 1)
     c = guess
-    # the dash: the brightest peak near the guess
-    near = [p for p in pk if abs(p - c) < 60]
-    if near: c = max(near, key=lambda p: prof0[p])
-    left = [p for p in pk if c - 240 < p < c - 14]
-    right = [p for p in pk if c + 14 < p < c + 240]
     out = {}
+    left = right = None
+    for prom in (40, 25):
+        pk, pr = find_peaks(prof0, prominence=prom)
+        near = [p for p in pk if abs(p - guess) < 60]
+        c = max(near, key=lambda p: prof0[p]) if near else guess     # the dash: the brightest peak near the guess
+        left = [p for p in pk if c - 240 < p < c - 14]
+        right = [p for p in pk if c + 14 < p < c + 240]
+        if left and right: break
     if not left or not right: return out
     l, r = float(max(left)), float(min(right))
     miss = 0
@@ -170,13 +176,29 @@ def platforms(img):
         if cw < 0.6 * w: continue                         # a lamp or a stripe, not a platform
         cx0, cx1 = xs.start + cx_.min(), xs.start + cx_.max() + 1
         cy0, cy1 = y0 + cy_.min(), y0 + cy_.max() + 1
+        # a round button seen at this angle is at most ~0.62 as tall as wide; a taller blob means the bright road or
+        # its glow above the button merged in — cut it from the top (the bottom, sitting on the gold, is reliable)
+        merged = cy1 - cy0 > CAP_HW * cw
+        if merged:
+            # the button's side (the lowest quarter of the blob) is clean: take the width from there
+            low = cy_ >= (cy1 - y0) - 0.22 * cw
+            cx0, cx1 = xs.start + cx_[low].min(), xs.start + cx_[low].max() + 1
+            cw = cx1 - cx0
+            cy0 = int(cy1 - CAP_FIX[0] * cw)
+            keep = (cy_ + y0) >= cy0
+            cap = cap.copy(); cap[: max(0, cy0 - y0), :] = False
+            cy_, cx_ = cy_[keep], cx_[keep]
         # the flat top (lighter, hue < 215) is an ellipse: fitted from its own extent
         top = cap & (Hh[y0:y1, xs] < 215)
         ty, tx = np.nonzero(top) if top.sum() > 0.3 * cap.sum() else (cy_, cx_)
         rx = (cx1 - cx0) / 2
-        ty0, ty1 = np.percentile(ty, 1), np.percentile(ty, 99)
-        ry = (ty1 - ty0) / 2
-        cx, cy = (cx0 + cx1) / 2, y0 + (ty0 + ty1) / 2
+        if merged:                                   # the top of the blob is not the button: use clean proportions
+            ry = CAP_FIX[1] * rx
+            cx, cy = (cx0 + cx1) / 2, cy0 + ry
+        else:
+            ty0, ty1 = np.percentile(ty, 1), np.percentile(ty, 99)
+            ry = (ty1 - ty0) / 2
+            cx, cy = (cx0 + cx1) / 2, y0 + (ty0 + ty1) / 2
         bx0, by0 = min(xs.start, cx0), min(ys.start, cy0)
         bx1, by1 = max(xs.stop, cx1), max(ys.stop, cy1)
         found.append({'cx': cx, 'cy': cy, 'rx': rx, 'ry': ry, 'cap': [cx0, cy0, cx1 - cx0, cy1 - cy0],
