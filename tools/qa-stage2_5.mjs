@@ -43,7 +43,7 @@ const events = (page, name) => ev(page, n => window.__ev.filter(e => e[0] === n)
 const shot = (page, name) => page.screenshot({ path: path.join(out, name + '.png') });
 const layout = page => ev(page, () => {
   const r = s => document.querySelector(s).getBoundingClientRect();
-  const dock = r('#mapDock'), play = r('#homePlay'), bar = r('#tabbar'), top = r('#map .topbar'), node = document.querySelector(`#mapWorlds .node[data-li="${nextLevel()}"]`);
+  const dock = r('#mapDock'), play = r('#homePlay'), bar = r('#tabbar'), top = r('#map .topbar'), node = document.querySelector(`#mapWorlds :is(.node, .dm-pad)[data-li="${nextLevel()}"]`);
   const nr = node && node.getBoundingClientRect();
   const clipped = [...document.querySelectorAll('#map .topbar *, #mapDock *')].filter(e => e.offsetParent && !e.closest('svg') && (e.getBoundingClientRect().right > innerWidth + 0.5 || e.getBoundingClientRect().left < -0.5 || (e.matches('.wname, small, span, b') && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis'))).map(e => e.id || e.className || e.tagName);
   return { playAboveBar: play.bottom <= bar.top + 0.5, dockInside: dock.left >= -0.5 && dock.right <= innerWidth + 0.5, nodeVisible: !!nr && nr.top >= top.bottom - 4 && nr.bottom <= dock.top + 4, clipped };
@@ -67,7 +67,7 @@ const layout = page => ev(page, () => {
   await page.click('#hudMap'); await page.waitForTimeout(500);
   check('map button in a level → back to the map (from=level)', await ev(page, () => screenNow === 'map') && (await events(page, 'map_open')).some(e => e.from === 'level'));
   // a node still opens its card
-  await page.click('#mapWorlds .node[data-li="3"]'); await page.waitForTimeout(400);
+  await page.click('#mapWorlds :is(.node, .dm-pad)[data-li="3"]'); await page.waitForTimeout(400);
   check('tapping a passed node opens its pre-level card', await ev(page, () => !$('#preOverlay').hidden && preLi === 3));
   await ev(page, () => hide('#preOverlay'));
   // shop and back

@@ -6,11 +6,13 @@
      blue metal panels, tubes on shelves, a lab window with a planet; two tones: night (dark blue) and day (lilac lab).
    B's backdrop and the world thumbnail are crops of the concept art (placeholders: a real redesign needs one clean
    backdrop per world and a drawn map). Switch: Settings → For testing → Style, or a link anchor
-   #style-current / #style-a / #style-b-night / #style-b-day. The choice is kept in save.styleTest (tester only). */
+   #style-current / #style-a / #style-b-night / #style-b-day. The choice is kept in save.styleTest (tester only). Since stage 3 part 2 the default is B night. */
 
-const STYLE_OPTS = ['current', 'a', 'b-night', 'b-day'];
-Object.assign(T.uk, { tStyle: 'Стиль (тест)', styleNames: { current: 'Поточний', a: 'А · полірування', 'b-night': 'Б · нічний', 'b-day': 'Б · світлий' } });
-Object.assign(T.en, { tStyle: 'Style (test)', styleNames: { current: 'Current', a: 'A · polish', 'b-night': 'B · night', 'b-day': 'B · day' } });
+// 'b-night' is the game's look (stage 3, 7 Nov 2026: src/parts/theme.js); the rest are kept for the tester only
+const STYLE_DEFAULT = 'b-night';
+const STYLE_OPTS = ['b-night', 'current', 'a', 'b-day'];
+Object.assign(T.uk, { tStyle: 'Стиль (тест)', styleNames: { current: 'Поточний', a: 'А · полірування', 'b-night': 'Б · нічний (типовий)', 'b-day': 'Б · світлий' } });
+Object.assign(T.en, { tStyle: 'Style (test)', styleNames: { current: 'Current', a: 'A · polish', 'b-night': 'B · night (default)', 'b-day': 'B · day' } });
 
 const ART_LAB = { night: '__ART:style/lab-night.webp__', day: '__ART:style/lab-day.webp__' };
 const ART_WORLD = { night: '__ART:style/world-night.webp__', day: '__ART:style/world-day.webp__' };
@@ -35,7 +37,7 @@ html[data-style="a"] .node { box-shadow: 0 6px 0 rgba(0,0,0,0.45), inset 0 3px 0
 html[data-style="a"] .icon-btn, html[data-style="a"] .coins { box-shadow: 0 3px 0 rgba(0,0,0,0.35); }
 
 /* ===== B · toy (GPT-0 concepts) ===== */
-html[data-style="b"] { --out: #1d2230; --metal-a: #3d5596; --metal-b: #22346b; --shelf-a: #9fb0d4; --shelf-b: #56688f; --floor-a: #1d2b5c; --floor-b: #0d1530; --map-a: #1b2550; --map-b: #0e1533; --grid: rgba(110, 160, 255, 0.07); }
+html[data-style="b"] { --out: var(--ui-out); --shelf-a: var(--ui-shelf-a); --shelf-b: var(--ui-shelf-b); --floor-a: var(--ui-floor-a); --floor-b: var(--ui-floor-b); --map-a: var(--ui-floor-a); --map-b: var(--ui-floor-b); --grid: rgba(110, 160, 255, 0.07); }
 html[data-style="b"][data-tone="day"] { --shelf-a: #e3e7f2; --shelf-b: #a3aec8; --floor-a: #8f99bd; --floor-b: #535e86; --map-a: #6f78a8; --map-b: #434b78; --grid: rgba(255, 255, 255, 0.12); }
 html[data-style="b"] #bg { background: linear-gradient(180deg, transparent 0 30vh, var(--floor-a) 44vh, var(--floor-b) 100%), var(--lab) center top / auto 44vh no-repeat, var(--floor-b) !important; filter: none !important; }
 html[data-style="b"] #bg .biome-art { display: none; }
@@ -56,12 +58,12 @@ html[data-style="b"] .ball.hid { background: radial-gradient(circle at 34% 26%, 
 html[data-style="b"] .layer.hid { background: repeating-linear-gradient(135deg, var(--hidden) 0 6px, var(--hidden-2) 6px 12px); }
 html[data-style="b"] .layer.surface::after { top: -3px; height: 7px; border-radius: 50%; opacity: 1; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 75%, #000), color-mix(in srgb, var(--c) 55%, #fff) 45%, color-mix(in srgb, var(--c) 80%, #000)); }
 /* HUD */
-html[data-style="b"] .icon-btn { background: linear-gradient(#4f93ff, #2459d8); border: 3px solid var(--out); border-radius: 14px; color: #fff; box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), 0 4px 0 var(--out); }
+html[data-style="b"] .icon-btn { background: linear-gradient(var(--ui-blue-a), var(--ui-blue-b)); border: 3px solid var(--out); border-radius: 14px; color: #fff; box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), 0 4px 0 var(--out); }
 html[data-style="b"] .icon-btn svg { stroke-width: 2.6; }
-html[data-style="b"] .coins { background: linear-gradient(#24356e, #152150); border: 3px solid var(--out); color: #fff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.15), 0 3px 0 var(--out); }
-html[data-style="b"] .coins .plus { border: 2px solid var(--out); background: linear-gradient(#7ee35a, #33ad38); color: #fff; }
-html[data-style="b"] .level-name { justify-self: center; padding: 3px 16px; border-radius: 14px; border: 3px solid var(--out); background: linear-gradient(#26387a, #142152); box-shadow: 0 0 0 3px rgba(90, 175, 255, 0.55), 0 4px 0 var(--out); color: #fff; }
-html[data-style="b"] .level-sub { justify-self: center; padding: 1px 10px; border-radius: 999px; background: rgba(14, 20, 46, 0.7); color: #dfe6ff; }
+html[data-style="b"] .coins { background: linear-gradient(var(--ui-deep-a), var(--ui-deep-b)); border: 3px solid var(--out); color: #fff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.15), 0 3px 0 var(--out); }
+html[data-style="b"] .coins .plus { border: 2px solid var(--out); background: linear-gradient(var(--ui-green-a), var(--ui-green-b)); color: #fff; }
+html[data-style="b"] .level-name { justify-self: center; padding: 3px 16px; border-radius: 14px; border: 3px solid var(--out); background: linear-gradient(var(--ui-deep-a), var(--ui-deep-b)); box-shadow: 0 0 0 3px rgba(90, 175, 255, 0.55), 0 4px 0 var(--out); color: #fff; }
+html[data-style="b"] .level-sub { justify-self: center; padding: 1px 10px; border-radius: 999px; background: rgba(14, 20, 46, 0.7); color: var(--ui-text-2); }
 html[data-style="b"] .rival { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
 html[data-style="b"] .rival { background: rgba(14, 20, 46, 0.75); border: 2px solid var(--out); }
 /* boosters: chunky coloured tiles */
@@ -73,35 +75,35 @@ html[data-style="b"] .tool .under { display: inline; }
 .tool svg .under { display: none; }
 html[data-style="b"] .icon-btn.b-ico { padding: 0; }
 html[data-style="b"] .icon-btn.b-ico svg { width: 32px; height: 32px; filter: none; }
-html[data-style="b"] #undoBtn { background: linear-gradient(#ffd34d, #f39a0b); }
-html[data-style="b"] #tubeBtn { background: linear-gradient(#56b6ff, #1f6fe0); }
-html[data-style="b"] #timeBtn { background: linear-gradient(#bb82ff, #7a3fe0); }
-html[data-style="b"] #restartBtn { background: linear-gradient(#77e46f, #2fa83a); }
+html[data-style="b"] #undoBtn { background: linear-gradient(var(--ui-gold-a), var(--ui-gold-b)); }
+html[data-style="b"] #tubeBtn { background: linear-gradient(var(--ui-sky-a), var(--ui-sky-b)); }
+html[data-style="b"] #timeBtn { background: linear-gradient(var(--ui-purple-a), var(--ui-purple-b)); }
+html[data-style="b"] #restartBtn { background: linear-gradient(var(--ui-green-a), var(--ui-green-b)); }
 html[data-style="b"] .badge { border: 2px solid var(--out); }
 /* windows and buttons */
-html[data-style="b"] .card { background: linear-gradient(#304c92, #1b2c63); border: 4px solid var(--out); box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.35), 0 8px 0 rgba(0,0,0,0.35); }
-html[data-style="b"] .card p { color: #c9d6f5; }
-html[data-style="b"] .btn { background: linear-gradient(#4566b8, #2a428c); border: 3px solid var(--out); box-shadow: inset 0 3px 0 rgba(255,255,255,0.22), 0 4px 0 var(--out); color: #fff; }
-html[data-style="b"] .btn.primary { background: linear-gradient(#86e85d, #33ad38); color: #fff; text-shadow: 0 2px 0 rgba(29, 34, 48, 0.5); box-shadow: inset 0 4px 0 rgba(255,255,255,0.4), inset 0 -4px 0 rgba(0,0,0,0.15), 0 5px 0 var(--out); }
-html[data-style="b"] .btn.boss, html[data-style="b"] .btn.primary.boss { background: linear-gradient(#ff6a76, #d11f35); }
+html[data-style="b"] .card { background: linear-gradient(var(--ui-panel-a), var(--ui-panel-b)); border: 4px solid var(--out); box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.35), 0 8px 0 rgba(0,0,0,0.35); }
+html[data-style="b"] .card p { color: var(--ui-text-2); }
+html[data-style="b"] .btn { background: linear-gradient(var(--ui-btn-a), var(--ui-btn-b)); border: 3px solid var(--out); box-shadow: inset 0 3px 0 rgba(255,255,255,0.22), 0 4px 0 var(--out); color: #fff; }
+html[data-style="b"] .btn.primary { background: linear-gradient(var(--ui-green-a), var(--ui-green-b)); color: #fff; text-shadow: 0 2px 0 rgba(29, 34, 48, 0.5); box-shadow: inset 0 4px 0 rgba(255,255,255,0.4), inset 0 -4px 0 rgba(0,0,0,0.15), 0 5px 0 var(--out); }
+html[data-style="b"] .btn.boss, html[data-style="b"] .btn.primary.boss { background: linear-gradient(var(--ui-red-a), var(--ui-red-b)); }
 html[data-style="b"] .btn:disabled { filter: grayscale(0.6); }
-html[data-style="b"] .boost, html[data-style="b"] .vs-cell, html[data-style="b"] .offer, html[data-style="b"] .coin-tile { background: linear-gradient(#2a4386, #1a2a5e); border: 3px solid var(--out); box-shadow: inset 0 2px 0 rgba(255,255,255,0.12); }
-html[data-style="b"] .offer.starter { background: linear-gradient(#ffcf4a, #f59e0b); color: var(--out); }
-html[data-style="b"] .offer.starter p { color: #4a3300; }
-html[data-style="b"] .offer.piggy { background: linear-gradient(#3b4fa6, #1f2d6b); }
+html[data-style="b"] .boost, html[data-style="b"] .vs-cell, html[data-style="b"] .offer, html[data-style="b"] .coin-tile { background: linear-gradient(var(--ui-tile-a), var(--ui-tile-b)); border: 3px solid var(--out); box-shadow: inset 0 2px 0 rgba(255,255,255,0.12); }
+html[data-style="b"] .offer.starter { background: linear-gradient(var(--ui-gold-a), var(--ui-gold-b)); color: var(--out); }
+html[data-style="b"] .offer.starter p { color: var(--ui-gold-ink); }
+html[data-style="b"] .offer.piggy { background: linear-gradient(var(--ui-btn-a), var(--ui-tile-b)); }
 html[data-style="b"] #shop { background: linear-gradient(var(--map-a), var(--map-b)); }
 /* tab bar: square tiles, Home gold */
-html[data-style="b"] .tabbar { background: linear-gradient(#2c3f7c, #16224d); border-top: 3px solid var(--out); border-radius: 0; padding-inline: 6px; gap: 6px; }
-html[data-style="b"] .tab { height: 58px; margin-block: 8px; border: 3px solid var(--out); border-radius: 16px; background: linear-gradient(#4f93ff, #2459d8); box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), 0 4px 0 var(--out); animation: none; }
-html[data-style="b"] .tab.on { height: 72px; margin-top: -8px; border: 3px solid var(--out); border-radius: 18px; background: linear-gradient(#ffd34d, #f39a0b); }
+html[data-style="b"] .tabbar { background: linear-gradient(var(--ui-deep-a), var(--ui-deep-b)); border-top: 3px solid var(--out); border-radius: 0; padding-inline: 6px; gap: 6px; }
+html[data-style="b"] .tab { height: 58px; margin-block: 8px; border: 3px solid var(--out); border-radius: 16px; background: linear-gradient(var(--ui-blue-a), var(--ui-blue-b)); box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), 0 4px 0 var(--out); animation: none; }
+html[data-style="b"] .tab.on { height: 72px; margin-top: -8px; border: 3px solid var(--out); border-radius: 18px; background: linear-gradient(var(--ui-gold-a), var(--ui-gold-b)); }
 html[data-style="b"] .tab.on > svg:first-child { transform: translateY(-4px) scale(1.15); }
 html[data-style="b"] .tab span { color: #fff; text-shadow: 0 2px 0 var(--out), 0 0 3px var(--out); }
-html[data-style="b"] .tab.soon { background: linear-gradient(#5d6c94, #3b4870); }
+html[data-style="b"] .tab.soon { background: linear-gradient(var(--ui-muted-a), var(--ui-muted-b)); }
 /* map: drawn pictures (src/parts/drawn-map.js); the world sign and the dock keep the B look */
-html[data-style="b"] .world-sign { background: linear-gradient(#304c92, #1b2c63); border: 3px solid var(--out); box-shadow: 0 4px 0 var(--out); }
-html[data-style="b"] .map-dock .world-card { min-height: 70px; padding-left: 112px; background: var(--world) 8px center / 92px auto no-repeat, linear-gradient(#5a6c99, #3a4a75); border: 3px solid var(--out); box-shadow: inset 0 3px 0 rgba(255,255,255,0.25), 0 5px 0 var(--out); }
-html[data-style="b"] .map-dock .bar { height: 14px; border: 2px solid var(--out); background: #1a2448; }
-html[data-style="b"] .map-dock .bar > i { background: linear-gradient(#8de866, #3cb43f); }
+html[data-style="b"] .world-sign { background: linear-gradient(var(--ui-panel-a), var(--ui-panel-b)); border: 3px solid var(--out); box-shadow: 0 4px 0 var(--out); }
+html[data-style="b"] .map-dock .world-card { min-height: 70px; padding-left: 112px; background: var(--world) 8px center / 92px auto no-repeat, linear-gradient(var(--ui-muted-a), var(--ui-muted-b)); border: 3px solid var(--out); box-shadow: inset 0 3px 0 rgba(255,255,255,0.25), 0 5px 0 var(--out); }
+html[data-style="b"] .map-dock .bar { height: 14px; border: 2px solid var(--out); background: var(--ui-deep-b); }
+html[data-style="b"] .map-dock .bar > i { background: linear-gradient(var(--ui-green-a), var(--ui-green-b)); }
 html[data-style="b"] .toast { border: 3px solid var(--out); }
 </style>`);
 
@@ -139,7 +141,7 @@ function underStrokeTools() {
 }
 
 function applyStyleTest(v) {
-  if (!STYLE_OPTS.includes(v)) v = 'current';
+  if (!STYLE_OPTS.includes(v)) v = STYLE_DEFAULT;
   const [look, tone] = v.split('-');
   const root = document.documentElement;
   if (look === 'current') delete root.dataset.style; else root.dataset.style = look;
@@ -164,8 +166,9 @@ $('#testerTools .setting').insertAdjacentHTML('beforebegin', `<div class="settin
 function renderStyleSel() {
   const t = tr(), sel = $('#styleSel');
   sel.innerHTML = STYLE_OPTS.map(k => `<option value="${k}">${t.styleNames[k]}</option>`).join('');
-  sel.value = save.styleTest || 'current';
+  sel.value = save.styleTest || STYLE_DEFAULT;
 }
+renderStyleSel();
 $('#styleSel').addEventListener('change', e => setStyleTest(e.target.value, 'settings'));
 $('#settingsBtn').addEventListener('click', renderStyleSel);
 document.querySelectorAll('#mapSettings, #settingsBtn').forEach(b => b.addEventListener('click', renderStyleSel));
@@ -183,5 +186,7 @@ if (!styleFromHash()) {
   if (window.TEST_STYLE && STYLE_OPTS.includes(window.TEST_STYLE) && save.styleTestBuild !== window.TEST_BUILD) {
     save.styleTest = window.TEST_STYLE; save.styleTestBuild = window.TEST_BUILD; persist();
   }
-  applyStyleTest(save.styleTest || 'current');
+  // the release build has no tester tools, so a style picked earlier in a test build never sticks there
+  const testerOn = !(NATIVE && !(P.env && P.env.debug));
+  applyStyleTest(testerOn ? (save.styleTest || STYLE_DEFAULT) : STYLE_DEFAULT);
 }

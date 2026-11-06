@@ -21,7 +21,7 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 #map.dm-on > .topbar { width: min(100%, 608px); margin-inline: auto; align-self: center; }
 #map.dm-on::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--dm-head, 80px) + 40px); z-index: 2; pointer-events: none;
   background: linear-gradient(rgba(10, 14, 40, 0.88), rgba(10, 14, 40, 0.55) 55%, transparent); }
-#map.dm-on .map-scroll { position: absolute; inset: 0; margin: 0; padding: 0 !important; z-index: 0; background: #0d1433; }
+#map.dm-on .map-scroll { position: absolute; inset: 0; margin: 0; padding: 0 !important; z-index: 0; background: var(--ui-floor-b); }
 #mapWorlds.drawn { display: flex; flex-direction: column-reverse; position: relative; z-index: 0; --u: 0.384; --cw: 393px; }
 .dm-slot { position: relative; flex: none; width: 100%; height: calc(var(--u) * var(--h) * 1px); pointer-events: none; }
 /* a real road stretch laid over the seam above this picture (tools/map-art.py: build_seams) */
@@ -45,12 +45,12 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-end.foot { height: calc(var(--dm-foot, 300px) + 56px); }
 .dm-end.head { height: var(--dm-head, 80px); }
 /* below level 1 and above the last level: a deep blue shade with a soft cyan glow (no mirrored picture) */
-.dm-end.foot { background: radial-gradient(70% 55% at 50% 0%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(180deg, #13245e, #0b1640 45%, #070d2a); }
-.dm-end.head { background: radial-gradient(70% 55% at 50% 100%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(0deg, #13245e, #0b1640 45%, #070d2a); }
+.dm-end.foot { background: radial-gradient(70% 55% at 50% 0%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(180deg, var(--ui-shade-a), var(--ui-shade-b) 45%, var(--ui-shade-c)); }
+.dm-end.head { background: radial-gradient(70% 55% at 50% 100%, rgba(70, 160, 255, 0.28), transparent 70%), linear-gradient(0deg, var(--ui-shade-a), var(--ui-shade-b) 45%, var(--ui-shade-c)); }
 /* the picture next to it fades into the shade */
 .dm-shade { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; height: calc(var(--u) * 130px); }
-.dm-shade.bottom { bottom: 0; background: linear-gradient(180deg, transparent, rgba(19, 36, 94, 0.6) 55%, #13245e); }
-.dm-shade.top { top: 0; background: linear-gradient(0deg, transparent, rgba(19, 36, 94, 0.6) 55%, #13245e); }
+.dm-shade.bottom { bottom: 0; background: linear-gradient(180deg, transparent, rgba(19, 36, 94, 0.6) 55%, var(--ui-shade-a)); }
+.dm-shade.top { top: 0; background: linear-gradient(0deg, transparent, rgba(19, 36, 94, 0.6) 55%, var(--ui-shade-a)); }
 /* platform cap recoloured from the picture itself */
 .dm-cap { position: absolute; border-radius: 50% / 42%; background-repeat: no-repeat; pointer-events: none;
   background-size: calc(var(--u) * ${DM_W}px) calc(var(--u) * var(--h) * 1px);
@@ -66,17 +66,17 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-mark { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 2; }
 .dm-num { position: absolute; left: 0; top: 0; transform: translate(-50%, -52%) scaleY(0.86); display: inline-flex; align-items: center; gap: calc(var(--u) * 2px);
   font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 46px); line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums;
-  color: #fff; -webkit-text-stroke: calc(var(--u) * 9px) #1d2230; paint-order: stroke fill; text-shadow: 0 calc(var(--u) * 4px) 0 rgba(29, 34, 48, 0.55); }
-.dm-mark.locked .dm-num { color: #c9d1e6; }
-.dm-num svg { width: calc(var(--u) * 34px); height: calc(var(--u) * 34px); fill: #fff4b8; stroke: #1d2230; stroke-width: 3; paint-order: stroke; overflow: visible; }
+  color: #fff; -webkit-text-stroke: calc(var(--u) * 9px) var(--ui-out); paint-order: stroke fill; text-shadow: 0 calc(var(--u) * 4px) 0 rgba(29, 34, 48, 0.55); }
+.dm-mark.locked .dm-num { color: var(--ui-text-2); }
+.dm-num svg { width: calc(var(--u) * 34px); height: calc(var(--u) * 34px); fill: var(--ui-gold-hi); stroke: var(--ui-out); stroke-width: 3; paint-order: stroke; overflow: visible; }
 .dm-stars { position: absolute; left: 0; top: calc(var(--u) * (var(--ry) * -1px - 30px)); transform: translateX(-50%); display: flex; align-items: flex-end; gap: calc(var(--u) * 2px); }
-.dm-stars i { width: calc(var(--u) * 34px); height: calc(var(--u) * 34px); background: #3a4470; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  filter: drop-shadow(0 calc(var(--u) * 3px) 0 #1d2230); }
+.dm-stars i { width: calc(var(--u) * 34px); height: calc(var(--u) * 34px); background: var(--ui-star-off); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  filter: drop-shadow(0 calc(var(--u) * 3px) 0 var(--ui-out)); }
 .dm-stars i:nth-child(2) { margin-bottom: calc(var(--u) * 10px); }
-.dm-stars i.on { background: linear-gradient(#fff3a6, #ffcd3c 55%, #f29a12); }
+.dm-stars i.on { background: linear-gradient(var(--ui-gold-hi), var(--ui-gold-a) 55%, var(--ui-gold-b)); }
 .dm-lock { position: absolute; left: calc(var(--u) * (var(--rx) * 1px - 18px)); top: calc(var(--u) * -30px); width: calc(var(--u) * 40px); height: calc(var(--u) * 40px); border-radius: 50%;
-  display: grid; place-items: center; background: linear-gradient(#5b6687, #343d5e); border: calc(var(--u) * 4px) solid #1d2230; }
-.dm-lock svg { width: 60%; height: 60%; fill: #e3e8f6; }
+  display: grid; place-items: center; background: linear-gradient(var(--ui-muted-a), var(--ui-muted-b)); border: calc(var(--u) * 4px) solid var(--ui-out); }
+.dm-lock svg { width: 60%; height: 60%; fill: var(--ui-text-2); }
 .dm-pin { position: absolute; left: 0; top: calc(var(--u) * (var(--ry) * -1px - 92px)); width: calc(var(--u) * 58px); height: calc(var(--u) * 76px); transform: translateX(-50%); animation: dmpin 1.1s ease-in-out infinite; filter: drop-shadow(0 calc(var(--u) * 6px) calc(var(--u) * 4px) rgba(0,0,0,0.45)); }
 .dm-mark.boss .dm-pin { top: calc(var(--u) * (var(--ry) * -1px - 100px)); }
 @keyframes dmpin { 50% { translate: 0 calc(var(--u) * -12px); } }
@@ -94,17 +94,17 @@ ${MAPART.list.map(n => `.dm-img-${n}{background-image:url(${MAPART.src[n]})}`).j
 .dm-gate.up::after { display: none; }
 /* a thin glowing line across the middle of the gate: the border of the next world */
 .dm-gate::after { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; height: calc(var(--u) * 6px); margin-top: calc(var(--u) * -3px); border-radius: 99px;
-  background: linear-gradient(90deg, transparent, rgba(255, 205, 60, 0.85) 20%, #fff3b0 50%, rgba(255, 205, 60, 0.85) 80%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 205, 60, 0.85) 20%, var(--ui-gold-hi) 50%, rgba(255, 205, 60, 0.85) 80%, transparent);
   box-shadow: 0 0 calc(var(--u) * 18px) calc(var(--u) * 4px) rgba(255, 190, 60, 0.55); }
 /* the next world, not open yet: fog over its first picture, a padlock card; nothing above it */
 .dm-fog { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; pointer-events: none;
   background: linear-gradient(0deg, rgba(4, 6, 24, 0.45), rgba(4, 6, 24, 0.86) 45%, rgba(4, 6, 24, 0.96)); backdrop-filter: blur(2px) saturate(0.6); -webkit-backdrop-filter: blur(2px) saturate(0.6); }
 .dm-fog-card { display: grid; justify-items: center; gap: 6px; max-width: 80%; padding: 14px 18px; border-radius: 18px; text-align: center; color: #fff;
-  background: linear-gradient(#304c92, #1b2c63); border: 3px solid #1d2230; box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.3), 0 6px 0 rgba(0,0,0,0.35); transform: translateY(18%); }
+  background: linear-gradient(var(--ui-panel-a), var(--ui-panel-b)); border: 3px solid var(--ui-out); box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.3), 0 6px 0 rgba(0,0,0,0.35); transform: translateY(18%); }
 .dm-fog-card b { font-family: var(--font-display); font-size: 1rem; line-height: 1.2; }
-.dm-fog-card small { color: #c9d6f5; font-size: 0.8rem; font-weight: 600; line-height: 1.3; }
-.dm-fog-lock { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(#5b6687, #343d5e); border: 3px solid #1d2230; }
-.dm-fog-lock svg { width: 20px; height: 20px; fill: #e3e8f6; }
+.dm-fog-card small { color: var(--ui-text-2); font-size: 0.8rem; font-weight: 600; line-height: 1.3; }
+.dm-fog-lock { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(var(--ui-muted-a), var(--ui-muted-b)); border: 3px solid var(--ui-out); }
+.dm-fog-lock svg { width: 20px; height: 20px; fill: var(--ui-text-2); }
 .dm-slot.locked .dm-fill { filter: blur(14px) brightness(0.35) saturate(0.6); }
 .dm-end.head.locked::after { content: ""; position: absolute; inset: 0; background: rgba(4, 6, 24, 0.96); }
 .dm-sign.bottom { bottom: auto; top: 100%; margin-top: 12px; }   /* in the blue shade under the first picture */
