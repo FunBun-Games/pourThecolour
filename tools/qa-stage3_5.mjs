@@ -138,6 +138,51 @@ for (const [vp, tag, opt] of [[{ width: 393, height: 852 }, '393', {}], [{ width
   await page.close();
 }
 
+// ---------- 2b. two flasks pour into one target at the same time (founder 07.11) ----------
+for (const variant of ['liquid', 'balls']) {
+  const page = await open({ width: 393, height: 852 }, base({ variant }));
+  await play(page, 6);
+  await ev(page, () => { S.tubes = [[1, 1, 1, 0], [2, 2, 2, 0], [0], [1], [2], []]; S.hidden = S.tubes.map(t => t.map(() => 0)); S.history = []; render(); });
+  await ev(page, () => {
+    window.__lvl = []; const t0 = performance.now();
+    const f = () => { const el = tubeEl(2); window.__lvl.push([...el.querySelectorAll(liquidMode() ? '.layer' : '.ball')].reduce((a, x) => a + (liquidMode() ? x.getBoundingClientRect().height : 1), 0)); window.__both = Math.max(window.__both || 0, document.querySelectorAll('.tube.pouring').length); if (performance.now() - t0 < 2600) requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+  });
+  await ev(page, () => { onTube(0); onTube(2); onTube(1); onTube(2); });
+  check(`${variant}: both moves into one tube are taken at once`, await ev(page, () => S.moves === 2 && S.tubes[2].length === 3));
+  await page.waitForTimeout(variant === 'liquid' ? 450 : 150);
+  if (variant === 'liquid') {
+    const two = await ev(page, () => {
+      const ts = [...document.querySelectorAll('.tube.pouring')];
+      const st = [...document.querySelectorAll('.pour-stream')];
+      const r = ts.map(t => t.getBoundingClientRect());
+      return { n: ts.length, streams: st.length, apart: r.length === 2 ? Math.hypot(r[0].left - r[1].left, r[0].top - r[1].top) : 0 };
+    });
+    check('liquid: two flasks pour into one tube at the same time', two.n === 2 && two.streams === 2, JSON.stringify(two));
+    check('liquid: the two flasks do not sit on top of each other', two.apart > 20, `${two.apart.toFixed(0)} px apart`);
+    await shot(page, 'two-into-one');
+  } else {
+    check('balls: balls from both tubes fly at the same time', await ev(page, () => document.querySelectorAll('.ball.moving').length >= 2 && tubeEl(2).querySelectorAll('.ball').length === 3));
+  }
+  await page.waitForTimeout(2400);
+  const lv = await ev(page, () => window.__lvl);
+  let drop = 0; for (let k = 1; k < lv.length; k++) drop = Math.max(drop, lv[k - 1] - lv[k]);
+  check(`${variant}: the shared target only fills up (no blinking)`, drop < 1.5, `worst drop ${drop.toFixed(1)}`);
+  check(`${variant}: after both pours the board equals the state`, (await synced(page)) && (await clean(page)));
+  const dur = await ev(page, () => window.__lvl.length);
+  await page.close();
+}
+// the same, timed: two pours into one tube take about as long as one (they run side by side)
+{
+  const page = await open({ width: 393, height: 852 }, base());
+  await play(page, 6);
+  await ev(page, () => { S.tubes = [[1, 1, 1, 0], [2, 2, 2, 0], [0], [1], [2], []]; S.hidden = S.tubes.map(t => t.map(() => 0)); S.history = []; render(); });
+  const ms = await ev(page, async () => { const t0 = performance.now(); onTube(0); onTube(2); onTube(1); onTube(2); await animIdle(); return performance.now() - t0; });
+  const one = await ev(page, () => CFG.pourMs + CFG.pourMsPerLayer);
+  check('two pours into one tube run side by side (not one after another)', ms < one * 1.5, `${ms.toFixed(0)} ms for two, one is ${one} ms`);
+  await page.close();
+}
+
 // ---------- 3. balls: arc and bounce ----------
 for (const [vp, tag] of [[{ width: 393, height: 852 }, '393'], [{ width: 320, height: 640 }, '320']]) {
   const page = await open(vp, base({ variant: 'balls' }));

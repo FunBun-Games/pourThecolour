@@ -119,6 +119,21 @@ function jTiltFor(w, L, V, dir) {
   return (lo + hi) / 2;
 }
 
+// lay out the growing layers of every pour into this tube, in move order, each on top of the one below
+function jStack(tb) {
+  const inc = tb.__inc || [];
+  let acc = tb.querySelectorAll('.layer').length - inc.length, top = null;
+  inc.forEach(e => {
+    e.el.style.setProperty('--i', acc);
+    e.el.style.transform = `scaleY(${e.f})`;
+    e.el.classList.remove('surface');
+    if (e.f > 0.02) top = e.el;
+    acc += e.f;
+  });
+  if (top) top.classList.add('surface');
+  return acc;
+}
+
 /* ---------- liquid pour ---------- */
 async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
   const ta = tubeEl(i), tb = tubeEl(j);
@@ -138,10 +153,14 @@ async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
   const roomL = mouthX - sr.left, roomR = sr.right - mouthX;
   if (dir === 1 && roomL < reach) dir = roomR >= reach || roomR > roomL ? -1 : 1;
   else if (dir === -1 && roomR < reach) dir = roomL >= reach || roomL > roomR ? 1 : -1;
+  // several flasks may pour into one tube at once: the 2nd tips from the other side if there is room, and waits higher
+  const lane = tb.__pours || 0;
+  tb.__pours = lane + 1;
+  if (lane % 2 === 1 && (dir === 1 ? roomR : roomL) >= reach * 0.75) dir = -dir;
   // pivot = the lip (outer top corner on the pouring side); it lands a little above the target's mouth centre
   const pivX = dir > 0 ? A.w : 0;
   const lipHome = { x: A.x + pivX, y: A.y };
-  const P = { x: mouthX + dir * Math.min(4, B.w * 0.06), y: B.y - Math.max(10, bs * 0.45) };
+  const P = { x: mouthX + dir * Math.min(4, B.w * 0.06), y: B.y - Math.max(10, bs * 0.45) - (lane ? bs * (0.5 + 0.4 * lane) : 0) };
   const dx = P.x - lipHome.x, dy = P.y - lipHome.y;
   const V0 = bands.length * LH, V1 = (bands.length - n) * LH;
   // tilt: like the reference — about 70° for a full flask up to about 125° for an almost empty one (the mouth always lower
@@ -162,13 +181,14 @@ async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
   ta.classList.add('pouring');
   const row = ta.parentElement; const rowZ = row.style.zIndex; row.style.zIndex = '7';
   ta.style.transformOrigin = `${pivX}px 0px`;
-  // target: new layers grow from the current surface
+  // target: new layers grow from the current surface; layers of all pours running into this tube share one stack
   tb.querySelectorAll('.layer.surface').forEach(el => el.classList.remove('surface'));
+  tb.__inc = tb.__inc || [];
   const incoming = [];
   for (let k = 0; k < n; k++) {
-    const el = makeLayer(color, base + k, k === n - 1);
+    const el = makeLayer(color, base + k, false);
     el.style.transformOrigin = 'bottom'; el.style.transform = 'scaleY(0)';
-    tb.appendChild(el); incoming.push(el);
+    tb.appendChild(el); const e = { el, f: 0 }; incoming.push(e); tb.__inc.push(e);
   }
   // stream
   const stream = document.createElement('div'); stream.className = 'pour-stream';
@@ -219,9 +239,9 @@ async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
     ta.style.transform = `translate(${x}px, ${y}px) rotate(${a}rad)`;
     drawBands(a, V);
     // target fill
-    incoming.forEach((el, k) => { el.style.transform = `scaleY(${jClamp(q * n - k, 0, 1)})`; });
+    incoming.forEach((e, k) => { e.f = jClamp(q * n - k, 0, 1); });
+    const filled = jStack(tb);
     // stream: grows down at the start, the tail falls at the end
-    const filled = base + q * n;
     const yBot = innerBottomB - filled * LH - sr.top;
     const yLip = P.y - sr.top + 2;
     const on = t >= tPour0 - 0.01 && t <= tPour1 + 0.05;
@@ -245,7 +265,10 @@ async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
   stream.remove(); drops.forEach(d => d.remove());
   slosh.remove();
   layers.forEach(el => el.style.visibility = '');
-  incoming.forEach(el => el.style.transform = '');
+  incoming.forEach(e => { e.f = 1; });
+  jStack(tb);
+  tb.__pours = Math.max(0, (tb.__pours || 1) - 1);
+  if (!tb.__pours) tb.__inc = [];      // the game redraws the tube now
   ta.classList.remove('pouring');
   ta.style.transform = ''; ta.style.transformOrigin = '';
   row.style.zIndex = rowZ;

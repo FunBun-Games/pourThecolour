@@ -1319,25 +1319,40 @@ function pour(i, j) {
   if (!won) afterBoardChange();
   juiceAfterMove(i, j);
   const myS = S, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  S.anim = S.anim || {}; S.tcount = S.tcount || {}; S.pending = S.pending || new Set();
+  // Animation queue (stage 3.5, founder 07.11: several flasks may pour into one target at the same time).
+  // A pour waits only for what really blocks it: everything on its source (the source must be still to fly), and,
+  // on the target, only a pour that has the target flying away (S.out). Pours INTO one tube run side by side; the tube
+  // is redrawn once the last of them lands (S.into), from the newest landed snapshot (S.snap, by move number).
+  S.anim = S.anim || {}; S.out = S.out || {}; S.into = S.into || {}; S.snap = S.snap || {}; S.tcount = S.tcount || {}; S.pending = S.pending || new Set(); S.seq = (S.seq || 0) + 1;
+  const seq = S.seq;
+  if (isDoneTube(snapJ.t) && !wasDone && !srcWasDone) { S.cheer = S.cheer || {}; S.cheer[j] = color; }
   const queued = tubeMoving(i);
   if (queued) { const ta = tubeEl(i); ta.classList.remove('sel'); ta.querySelectorAll('.ball.up').forEach(x => x.classList.remove('up')); }
   S.tcount[i] = (S.tcount[i] || 0) + 1; S.tcount[j] = (S.tcount[j] || 0) + 1;
-  const p = Promise.all([S.anim[i], S.anim[j]]).then(async () => {
+  const land = (k, snap) => { if (!S.snap[k] || S.snap[k].seq < seq) S.snap[k] = { seq, snap }; };
+  const p = Promise.all([S.anim[i], S.out[j]]).then(async () => {
     if (S !== myS) return;
-    const waiting = Math.max(S.tcount[i], S.tcount[j]) - 1, hurry = Math.max(0.3, 1 / (1 + 0.7 * waiting));
-    if (liquidMode()) await pourLiquid(i, j, n, color, reduce, hurry);
-    else await pourBalls(i, j, n, color, reduce, hurry);
+    const hurry = Math.max(0.3, 1 / (1 + 0.7 * (S.tcount[i] - 1)));
+    S.into[j] = (S.into[j] || 0) + 1;
+    try {
+      if (liquidMode()) await pourLiquid(i, j, n, color, reduce, hurry);
+      else await pourBalls(i, j, n, color, reduce, hurry);
+    } finally { if (S === myS) S.into[j]--; }
     if (S !== myS) return;
     buzz(8);
     S.tcount[i]--; S.tcount[j]--;
-    syncTube(i, snapI); syncTube(j, snapJ);
-    if (isDoneTube(snapJ.t) && !wasDone && !srcWasDone) celebrateTube(j, color);
+    land(i, snapI); land(j, snapJ);
+    syncTube(i, S.snap[i].snap);
+    if (!S.into[j]) {                      // the last pour into this tube has landed: draw it as it is now
+      syncTube(j, S.snap[j].snap);
+      if (S.cheer && S.cheer[j] !== undefined && isDoneTube(S.snap[j].snap.t)) { celebrateTube(j, S.cheer[j]); delete S.cheer[j]; }
+    }
     refreshLock();
     // a tube the player picked while it was still moving gets its lifted look now
     if (S.sel === i || S.sel === j) setSelected(S.sel);
-  }).catch(e => { console.error(e); if (S === myS) { S.tcount = {}; render(); } });
-  S.anim[i] = S.anim[j] = p;
+  }).catch(e => { console.error(e); if (S === myS) { S.tcount = {}; S.into = {}; render(); } });
+  S.anim[i] = S.out[i] = p;
+  S.anim[j] = Promise.all([S.anim[j], p]);
   S.pending.add(p); p.finally(() => S.pending && S.pending.delete(p));
   // the last finished tube plays its spiral before the win window
   if (won) animIdle().then(() => { if (S === myS) setTimeout(win, Math.max(350, juiceBusyUntil - performance.now())); });
