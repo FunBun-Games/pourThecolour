@@ -68,6 +68,11 @@ const SCENES = [
   { id: 'pop-starter', save: { starterShown: 0, starterOpen: 1 }, run: () => popOffer('starter'), wait: 300 },
   { id: 'pop-piggy', save: { piggy: 1200 }, run: () => popOffer('piggy'), wait: 300 },
   { id: 'toast', save: {}, run: () => toast('Колекція — скоро'), wait: 200 },
+  // stage 3.5: game feel
+  { id: 'pour-liquid', save: { variant: 'liquid' }, run: async () => { playLevel(36); await new Promise(r => setTimeout(r, 2400)); CFG.pourMs = 20000; for (let i = 0; i < S.tubes.length; i++) for (let j = 0; j < S.tubes.length; j++) if (i !== j && canPour(i, j)) { onTube(i); onTube(j); return; } }, wait: 9000 },
+  { id: 'cork', save: { variant: 'liquid' }, run: async () => { playLevel(10); await new Promise(r => setTimeout(r, 900)); S.tubes = [[0, 0, 0], [1, 1, 1, 0], [1], [2, 2, 2, 2], [3, 3], [3, 3]]; S.hidden = S.tubes.map(t => t.map(() => 0)); render(); onTube(1); onTube(0); }, wait: 1500 },
+  { id: 'tutorial-1', save: { level: 0, variant: 'liquid', stats: {} }, run: () => playLevel(0), wait: 1300 },
+  { id: 'tutorial-2', save: { level: 1, variant: 'liquid' }, run: async () => { playLevel(1); await new Promise(r => setTimeout(r, 900)); onTube(0); }, wait: 500 },
   { id: 'toast-level', save: {}, run: async () => { playLevel(10); await new Promise(r => setTimeout(r, 900)); toast('Скасувань більше немає'); }, wait: 200 }
 ];
 
@@ -121,7 +126,7 @@ function inspect() {
   const opaque = c => { const m = c.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/); return !m || +m[1] >= 0.98; };
   const baseRgb = c => c.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]*\)/, 'rgb($1,$2,$3)').replace(/\s+/g, '').replace('rgb(', 'rgb(').replace(/,/g, ', ');
   const allowedBase = new Set([...allowed].map(baseRgb));
-  const skip = el => el.closest('.logo, .lock-badge, .hard-intro, svg, img, .ball, .layer, .tube, .art, .biome-art, .drawn-map, #mapScroll .dm-img, .ava, .rival-ava, .coin, .star, .anim, canvas, [data-art]');
+  const skip = el => el.closest('.logo, .lock-badge, .hard-intro, svg, img, .ball, .layer, .tube, .spark, .drop, .pour-stream, .bubble, .art, .biome-art, .drawn-map, #mapScroll .dm-img, .ava, .rival-ava, .coin, .star, .anim, canvas, [data-art]');
   const seen = new Map();
   for (const el of scope.querySelectorAll('*')) {
     if (skip(el) || !vis(el)) continue;

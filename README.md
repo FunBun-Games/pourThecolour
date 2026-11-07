@@ -7,7 +7,7 @@
 | Шлях | Що це |
 | --- | --- |
 | `src/game.html` | Уся гра: розмітка, стилі, логіка. Один файл, без фреймворків |
-| `src/parts/` | Світи (фони, `biomes.js`), екрани: мапа рівнів — вона ж вкладка «Дім» з плашкою світу й кнопкою «Грати» (етап 2.5), картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`), магазин, нижня панель вкладок, скарбничка й стартовий набір (`shop.js`). Вставляються в гру під час збірки |
+| `src/parts/` | Світи (фони, `biomes.js`), екрани: мапа рівнів — вона ж вкладка «Дім» з плашкою світу й кнопкою «Грати» (етап 2.5), картка перед рівнем (`screens.js`), бустери в запасі, подарунки й вікно глухого кута з солвером (`boosters.js`), магазин, нижня панель вкладок, скарбничка й стартовий набір (`shop.js`), «відчуття гри» — переливання з рівною поверхнею рідини, корок і спіраль на завершеній колбі, звуки, навчання на рівнях 1–2 (`juice.js`, етап 3.5). Вставляються в гру під час збірки |
 | `src/platform.js` | Шар платформи: реклама, покупки, аналітика, remote config, вібрація, збереження. У браузері вимкнений — гра показує демо-рекламу й демо-покупки |
 | `src/env.json` | Ідентифікатори реклами (зараз — тестові Google) і прапорець `debug` |
 | `levels/levels.json` | 500 рівнів. Кожен перевірений солвером; `minMoves` — точний мінімум ходів |
@@ -44,11 +44,14 @@ node tools/qa-stage2_5.mjs     # бот етапу 2.5: «Дім» = мапа
 
 Етап 2 (магазин): `starterShowAt` (з якого рівня відкривається стартовий набір; ще — після першого глухого кута), `piggyPerWin` + `piggyPerStar` × зірки (скільки кладе в скарбничку перемога), `piggyCap` (ліміт скарбнички), `piggyBreakAt` (з якої суми її можна розбити), `adCoins` / `adCoinsPerDay` (монети за рекламу в магазині й скільки разів на день), `tabsSoon` (1 — вкладки Колекція / Рейтинг / Бонус показано із замком до своїх етапів, 0 — сховано). Вміст наборів (`starterPack`, `labPack`, `scientistPack`, `professorPack`) і ціни-заглушки (`…Price`) — теж у `CFG`, але це не числа, тож Remote Config їх не змінює; на iOS ціну завжди показує App Store.
 
+Етап 3.5 («відчуття гри»): `pourMs` + `pourMsPerLayer` (тривалість переливання рідини, мс), `ballMs` (політ кульки), `sfxVol` (гучність звуків, 0–2), `tutorial` (0 — без навчання), `tutMoves` (скільки ходів на рівні 1 показує рука).
+
 ## Події аналітики
 
 `level_start`, `level_complete`, `level_fail`, `level_restart`, `revive`, `coins_spent`, `ad_offer_accepted`, `ad_watched`, `ad_impression` (з доходом), `purchase`, `map_open` (level, from: launch / level / win / play / other), `level_quit`, `pre_boost`, `music_toggle`,
 `stuck_offer` (level, how: coins / ad / stock / gift / shop / undo / restart / dismiss, kind: dead / early, gift, extra), `booster_use` (type: undo / tube / time, method: coins / ad / stock / gift, level), `booster_gift` (type, level, count),
 `shop_open` (from: tab / swipe / coins / hud / settings, level), `iap_offer_shown` (product, place: shop / popup / stuck), `purchase` (product, price, place: shop / popup / stuck, level, value, currency, transaction_id; у браузері demo=1), `purchase_fail` (product, place), `piggy_fill` (stage: ready / full, amount, level), `piggy_break` (amount), `shop_ad_coins` (amount, left), `tab_open` / `tab_swipe` (tab). Властивість гравця: `look_variant` (balls / liquid).
+`tutorial_step` (level: 1 / 2, step: 0 — початок, далі номер ходу), `tutorial_done` (level, moves) — етап 3.5.
 
 ## Запуск: кроки по порядку
 

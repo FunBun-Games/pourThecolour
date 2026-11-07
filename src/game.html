@@ -963,6 +963,7 @@ const buzz = ms => {
 /*@include parts/shop.js*/
 /*@include parts/style-test.js*/
 /*@include parts/drawn-map.js*/
+/*@include parts/juice.js*/
 /*@include parts/theme.js*/
 
 /* ---------- Game state ---------- */
@@ -1066,6 +1067,7 @@ function startLevel(li, restore, boosts) {
   if (li === 0 && S.moves === 0) hint(tr().hint1);
   else if (li === 1 && S.moves === 0) hint(tr().hint2);
   else hint('');
+  juiceLevelStart(li, restore);
 }
 
 /* ---------- Rendering ---------- */
@@ -1121,6 +1123,7 @@ function fillTube(tube, i, t = S.tubes[i], h = S.hidden[i]) {
     tube.appendChild(el);
   });
   tube.classList.toggle('done', isDoneTube(t));
+  corkSync(tube, isDoneTube(t));
   tube.querySelectorAll('.lock').forEach(el => el.remove());
   tube.classList.toggle('locked', isLocked(i));
   if (isLocked(i)) {
@@ -1149,7 +1152,7 @@ function refreshLock() {
 
 function makeLayer(c, n, surface) {
   const el = document.createElement('div');
-  el.className = 'layer' + (surface ? ' surface' : '');
+  el.className = 'layer' + (surface ? ' surface' : '') + (n === 0 ? ' bot' : '');
   el.style.setProperty('--c', `var(--c${c})`);
   el.style.setProperty('--i', n);
   return el;
@@ -1197,6 +1200,7 @@ function setSelected(i) {
   board.querySelectorAll('.tube.sel').forEach(t => t.classList.remove('sel'));
   board.querySelectorAll('.ball.up').forEach(b => b.classList.remove('up'));
   S.sel = i;
+  juiceSelected(i);
   if (i === null) return;
   const t = S.tubes[i], el = tubeEl(i), b = ballSize();
   el.classList.add('sel');
@@ -1314,6 +1318,7 @@ function pour(i, j) {
   if (won) { S.won = true; S.tEnd = Date.now(); }
   updateHud();
   if (!won) afterBoardChange();
+  juiceAfterMove(i, j);
   const myS = S, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   S.anim = S.anim || {}; S.tcount = S.tcount || {}; S.pending = S.pending || new Set();
   const queued = tubeMoving(i);
@@ -1328,14 +1333,15 @@ function pour(i, j) {
     buzz(8);
     S.tcount[i]--; S.tcount[j]--;
     syncTube(i, snapI); syncTube(j, snapJ);
-    if (isDoneTube(snapJ.t) && !wasDone && !srcWasDone) { sfx.done(color); burst(tubeEl(j), color); }
+    if (isDoneTube(snapJ.t) && !wasDone && !srcWasDone) celebrateTube(j, color);
     refreshLock();
     // a tube the player picked while it was still moving gets its lifted look now
     if (S.sel === i || S.sel === j) setSelected(S.sel);
   }).catch(e => { console.error(e); if (S === myS) { S.tcount = {}; render(); } });
   S.anim[i] = S.anim[j] = p;
   S.pending.add(p); p.finally(() => S.pending && S.pending.delete(p));
-  if (won) animIdle().then(() => { if (S === myS) setTimeout(win, 350); });
+  // the last finished tube plays its cork and spiral before the win window
+  if (won) animIdle().then(() => { if (S === myS) setTimeout(win, Math.max(350, juiceBusyUntil - performance.now())); });
 }
 // Redraw one tube from a snapshot; balls that stopped being hidden get the reveal pop.
 function syncTube(i, snap) {
@@ -1346,106 +1352,7 @@ function syncTube(i, snap) {
     if (wasHid[p] && !snap.h[p]) { el.classList.add('reveal'); setTimeout(() => el.classList.remove('reveal'), 450); }
   });
 }
-async function pourBalls(i, j, n, color, reduce, hurry = 1) {
-  const ta = tubeEl(i), tb = tubeEl(j);
-  const allTop = [...ta.querySelectorAll('.ball')];
-  const moving = allTop.slice(-n).reverse();             // top ball first
-  allTop.slice(0, allTop.length - n).forEach(el => el.classList.remove('up'));
-  const base = tb.querySelectorAll('.ball').length;      // what the target shows now (earlier pours into it have landed)
-  ta.classList.remove('sel');
-  const bs = ballSize();
-  const dur = reduce ? 1 : 400 * hurry, step = reduce ? 0 : 0.075 * hurry;
-  // measure everything first, then write: one layout pass instead of one per ball
-  const befores = moving.map(el => el.getBoundingClientRect());
-  moving.forEach((el, k) => { el.classList.add('moving'); el.classList.remove('up', 'hid'); el.style.setProperty('--i', base + k); tb.appendChild(el); });
-  const tbTop = tb.getBoundingClientRect().top;
-  const afters = moving.map(el => el.getBoundingClientRect());
-  sfx.drops(color, n, dur / 1000 * 0.92, step);
-  const done = moving.map((el, k) => {
-    const before = befores[k], after = afters[k];
-    const dx = before.left - after.left, dy = before.top - after.top;
-    const peak = Math.min(before.top, tbTop - bs * 1.1) - after.top;
-    return el.animate([
-      { transform: `translate(${dx}px, ${dy}px)` },
-      { transform: `translate(${dx * 0.5}px, ${peak}px)`, offset: 0.42 },
-      { transform: `translate(${dx * 0.04}px, ${peak * 0.25}px)`, offset: 0.78 },
-      { transform: 'translate(0, 0)' }
-    ], { duration: dur, delay: step * 1000 * k, easing: 'cubic-bezier(.35,.75,.35,1)', fill: 'backwards' }).finished
-      .then(() => el.classList.remove('moving'));
-  });
-  await Promise.all(done);
-}
-
-async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
-  const ta = tubeEl(i), tb = tubeEl(j);
-  ta.classList.remove('sel');
-  const outgoing = [...ta.querySelectorAll('.layer')].slice(-n);
-  const base = tb.querySelectorAll('.layer').length;
-  const dur = reduce ? 1 : (260 + 140 * n) * hurry;
-  const ra = ta.getBoundingClientRect(), rb = tb.getBoundingClientRect(), sr = stage.getBoundingClientRect();
-  // tip towards the target, unless the tilted flask would stick out of the screen — then tip the other way
-  let dir = rb.left > ra.left ? 1 : -1;
-  const reach = ra.height + 8, cx = rb.left + rb.width / 2;
-  if (dir === -1 && cx + reach > sr.right) dir = 1;
-  else if (dir === 1 && cx - reach < sr.left) dir = -1;
-  const bs = ballSize();
-  // the source flask flies over the target and tips almost on its side, mouth over the target's mouth
-  const mx = rb.left + rb.width / 2 - dir * rb.width * 0.22, my = rb.top - bs * 0.55 - 8;
-  const tx = mx - (ra.left + ra.width / 2), ty = my - ra.top;
-  ta.style.transformOrigin = '50% 0';
-  ta.style.zIndex = '6';
-  const tilt = ta.animate([
-    { transform: 'translate(0, -14px) rotate(0deg)' },
-    { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.2 },
-    { transform: `translate(${tx}px, ${ty}px) rotate(${dir * 100}deg)`, offset: 0.84 },
-    { transform: 'translate(0, 0) rotate(0deg)' }
-  ], { duration: dur + 420 * hurry, easing: 'ease-in-out' });
-  // a thin stream from the mouth down to the liquid surface in the target
-  const x1 = mx - sr.left, y1 = my - sr.top + 2;
-  const y2 = rb.bottom - sr.top - 4 - base * (bs + 2);
-  const stream = document.createElement('div');
-  stream.className = 'stream';
-  stream.style.setProperty('--c', `var(--c${color})`);
-  stream.style.left = (x1 - 3) + 'px'; stream.style.top = y1 + 'px'; stream.style.height = Math.max(8, y2 - y1) + 'px';
-  stage.appendChild(stream);
-  const pourStart = 0.24, pourEnd = 0.8;
-  stream.animate([
-    { opacity: 0, clipPath: 'inset(0 0 100% 0)' },
-    { opacity: 1, clipPath: 'inset(0 0 100% 0)', offset: pourStart },
-    { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourStart + 0.08 },
-    { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: pourEnd },
-    { opacity: 0, clipPath: 'inset(100% 0 0 0)' }
-  ], { duration: dur + 420 * hurry, easing: 'linear' }).finished.then(() => stream.remove());
-  // source layers drain, target layers fill
-  const total = dur + 420 * hurry;
-  outgoing.forEach(el => el.classList.remove('surface'));
-  const span = pourEnd - pourStart;
-  outgoing.forEach((el, idx) => {
-    const q = n - 1 - idx;                       // 0 = the top layer drains first
-    const from = pourStart + 0.04 + span * q / n, to = pourStart + 0.04 + span * (q + 1) / n;
-    el.animate([
-      { transform: 'scaleY(1)' }, { transform: 'scaleY(1)', offset: Math.min(from, 0.99) },
-      { transform: 'scaleY(0)', offset: Math.min(to, 0.995) }, { transform: 'scaleY(0)' }
-    ], { duration: total, fill: 'forwards' });
-  });
-  outgoing.forEach(el => el.style.transformOrigin = 'bottom');
-  tb.querySelectorAll('.layer.surface').forEach(el => el.classList.remove('surface'));
-  const incoming = [];
-  for (let k = 0; k < n; k++) {
-    const el = makeLayer(color, base + k, k === n - 1);
-    el.classList.add('grow');
-    tb.appendChild(el);
-    incoming.push(el);
-    el.animate([
-      { transform: 'scaleY(0)' }, { transform: 'scaleY(0)', offset: pourStart + 0.06 + (pourEnd - pourStart) * k / n },
-      { transform: 'scaleY(1)', offset: pourStart + 0.06 + (pourEnd - pourStart) * (k + 1) / n }, { transform: 'scaleY(1)' }
-    ], { duration: total, fill: 'backwards' });
-  }
-  sfx.glug(color, n, total * pourStart / 1000, total * (pourEnd - pourStart) / 1000);
-  await tilt.finished;
-  ta.style.transformOrigin = ''; ta.style.zIndex = '';
-}
-
+/* pourBalls, pourLiquid: src/parts/juice.js */
 function burst(tube, color) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const r = tube.getBoundingClientRect(), sr = stage.getBoundingClientRect();

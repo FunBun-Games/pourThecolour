@@ -27,6 +27,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
   --ui-red-a: #ff6a76; --ui-red-b: #d11f35; --ui-red: #ff4052;
   --ui-good: #64d39a; --ui-good-ink: #0b2a1a;
   --ui-star-off: #3a4470;
+  /* the picked tube's glow (stage 3.5) */
+  --ui-glow: #6fd3ff; --ui-glow-soft: rgba(111, 211, 255, 0.55);
   /* backgrounds: lab floor, shelves, the shade at the map's ends */
   --ui-floor-a: #1d2b5c; --ui-floor-b: #0d1530;
   --ui-shelf-a: #9fb0d4; --ui-shelf-b: #56688f;
