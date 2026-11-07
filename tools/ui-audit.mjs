@@ -70,7 +70,7 @@ const SCENES = [
   { id: 'toast', save: {}, run: () => toast('Колекція — скоро'), wait: 200 },
   // stage 3.5: game feel
   { id: 'pour-liquid', save: { variant: 'liquid' }, run: async () => { playLevel(36); await new Promise(r => setTimeout(r, 2400)); CFG.pourMs = 20000; for (let i = 0; i < S.tubes.length; i++) for (let j = 0; j < S.tubes.length; j++) if (i !== j && canPour(i, j)) { onTube(i); onTube(j); return; } }, wait: 9000 },
-  { id: 'cork', save: { variant: 'liquid' }, run: async () => { playLevel(10); await new Promise(r => setTimeout(r, 900)); S.tubes = [[0, 0, 0], [1, 1, 1, 0], [1], [2, 2, 2, 2], [3, 3], [3, 3]]; S.hidden = S.tubes.map(t => t.map(() => 0)); render(); onTube(1); onTube(0); }, wait: 1500 },
+  { id: 'tube-done', save: { variant: 'liquid' }, run: async () => { playLevel(10); await new Promise(r => setTimeout(r, 900)); S.tubes = [[0, 0, 0], [1, 1, 1, 0], [1], [2, 2, 2, 2], [3, 3], [3, 3]]; S.hidden = S.tubes.map(t => t.map(() => 0)); render(); onTube(1); onTube(0); }, wait: 1500 },
   { id: 'tutorial-1', save: { level: 0, variant: 'liquid', stats: {} }, run: () => playLevel(0), wait: 1300 },
   { id: 'tutorial-2', save: { level: 1, variant: 'liquid' }, run: async () => { playLevel(1); await new Promise(r => setTimeout(r, 900)); onTube(0); }, wait: 500 },
   { id: 'toast-level', save: {}, run: async () => { playLevel(10); await new Promise(r => setTimeout(r, 900)); toast('Скасувань більше немає'); }, wait: 200 }

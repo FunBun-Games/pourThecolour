@@ -1,5 +1,5 @@
 // Stage 3.5 QA bot: game feel — the new liquid pour (flask tips over the target, level surface inside, stream, smooth fill),
-// balls flying out in an arc, quick taps in a row, undo during an animation, the cork + spiral on a finished tube
+// balls flying out in an arc, quick taps in a row, undo during an animation, the spiral on a finished tube (no cork — founder 07.11), no flicker of the target's liquid
 // (and before the win window), the tutorial on levels 1–2 (new player / already passed), the picked tube's glow,
 // sounds without errors, reduced motion, 393 and 320 px and the artifact wrapper.
 // Usage: node tools/build.mjs && node tools/qa-stage3_5.mjs   (run the other bots and tools/ui-audit.mjs as regression)
@@ -70,6 +70,12 @@ for (const [vp, tag, opt] of [[{ width: 393, height: 852 }, '393', {}], [{ width
   const page = await open(vp, base(), opt);
   await play(page, 6);
   const mv = await pickMove(page);
+  // watch the target's liquid every frame for the whole pour: its level must never drop (founder 07.11: it blinked)
+  await ev(page, ([i, j]) => {
+    window.__lvl = []; const tb = tubeEl(j), t0 = performance.now();
+    const f = () => { const el = tubeEl(j) || tb; const h = [...el.querySelectorAll('.layer')].reduce((a, x) => a + (x.style.visibility === 'hidden' ? 0 : x.getBoundingClientRect().height), 0); window.__lvl.push(h); if (performance.now() - t0 < 2200) requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+  }, mv);
   await ev(page, ([i, j]) => { onTube(i); onTube(j); }, mv);
   check(`${tag}: the move is counted at once`, await ev(page, () => S.moves === 1));
   const total = await ev(page, () => CFG.pourMs + CFG.pourMsPerLayer);
@@ -88,6 +94,10 @@ for (const [vp, tag, opt] of [[{ width: 393, height: 852 }, '393', {}], [{ width
   check(`${tag}: a stream falls into the target's mouth`, mid.stream && mid.stream.op > 0.5 && mid.stream.h > 8 && mid.stream.cx > mid.target.l && mid.stream.cx < mid.target.r, JSON.stringify(mid.stream));
   check(`${tag}: stream on screen`, mid.stream && mid.stream.l >= 0 && mid.stream.r <= mid.vw);
   await page.waitForTimeout(total * 0.8 + 400);
+  await page.waitForTimeout(600);
+  const lv = await ev(page, () => window.__lvl);
+  let drop = 0; for (let k = 1; k < lv.length; k++) drop = Math.max(drop, lv[k - 1] - lv[k]);
+  check(`${tag}: the target's liquid never blinks (level only grows, frame by frame)`, lv.length > 30 && drop < 1.5, `${lv.length} frames, worst drop ${drop.toFixed(1)} px`);
   check(`${tag}: after the pour the board equals the state, nothing left over`, (await synced(page)) && (await clean(page)));
   await page.close();
 }
@@ -142,23 +152,23 @@ for (const [vp, tag] of [[{ width: 393, height: 852 }, '393'], [{ width: 320, he
   await page.close();
 }
 
-// ---------- 4. finished tube: cork, spiral, bubbles; win only after it ----------
+// ---------- 4. finished tube: spiral, bubbles, no cork; win only after it ----------
 for (const variant of ['liquid', 'balls']) {
   const page = await open({ width: 393, height: 852 }, base({ variant }));
   await play(page, 6);
   await ev(page, () => { S.tubes = [[0, 0, 0], [1, 1, 1, 0], [1], [2, 2, 2, 2], []]; S.hidden = S.tubes.map(t => t.map(() => 0)); S.history = []; render(); });
-  check(`${variant}: an already finished tube has a cork`, await ev(page, () => !!tubeEl(3).querySelector('.cork') && !tubeEl(0).querySelector('.cork')));
+  check(`${variant}: no corks anywhere`, await ev(page, () => !document.querySelector('.cork')));
   await ev(page, () => { onTube(1); onTube(0); });
   const waitFor = async (fn, ms = 3000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(page, fn)) return true; await page.waitForTimeout(40); } return false; };
   const spiral = await waitFor(() => !!document.querySelector('.helix'));
   check(`${variant}: gold spiral runs over the finished tube`, spiral);
   await page.waitForTimeout(250);
-  check(`${variant}: cork on the finished tube, bubbles inside`, await ev(page, () => !!tubeEl(0).querySelector('.cork') && (!liquidMode() || tubeEl(0).querySelectorAll('.bubble').length > 0)));
-  await shot(page, `cork-${variant}`);
+  check(`${variant}: bubbles inside the finished tube, no cork`, await ev(page, () => !document.querySelector('.cork') && (!liquidMode() || tubeEl(0).querySelectorAll('.bubble').length > 0)));
+  await shot(page, `done-${variant}`);
   await page.waitForTimeout(1200);
   check(`${variant}: spiral and sparks are cleaned up`, await ev(page, () => !document.querySelector('.helix')));
   await page.click('#undoBtn'); await page.waitForTimeout(500);
-  check(`${variant}: undo takes the cork off`, await ev(page, () => !tubeEl(0).querySelector('.cork')));
+  check(`${variant}: undo works after a finished tube`, await ev(page, () => !isDoneTube(S.tubes[0])) && await synced(page));
   // finish the level: the last tube's cork plays before the win window
   await ev(page, () => { onTube(1); onTube(0); }); await page.waitForTimeout(2200);
   await ev(page, () => { onTube(2); onTube(1); });
@@ -166,7 +176,7 @@ for (const variant of ['liquid', 'balls']) {
   await waitFor(() => !!document.querySelector('.helix'), 4000);
   const helixAt = Date.now() - t0;
   const winEarly = await ev(page, () => !$('#winOverlay').hidden);
-  check(`${variant}: the win window waits for the last cork`, !winEarly, `spiral after ${helixAt} ms`);
+  check(`${variant}: the win window waits for the last spiral`, !winEarly, `spiral after ${helixAt} ms`);
   await waitFor(() => !$('#winOverlay').hidden, 4000);
   check(`${variant}: then the win window opens`, await ev(page, () => !$('#winOverlay').hidden));
   await page.close();
@@ -237,7 +247,7 @@ for (const variant of ['liquid', 'balls']) {
   check('picked tube glows sky blue', /111, 211, 255/.test(glow), glow.slice(0, 80));
   await shot(page, 'selected');
   const snd = await ev(page, async () => {
-    try { sfx.unlock(); sfx.pick(2); sfx.lift(); sfx.place(); sfx.nope(); sfx.fill(1, 1, 2, 0, 0.5); sfx.glug(1, 2, 0, 0.3); sfx.drops(3, 3, 0, 0.08); sfx.cork(4); sfx.done(2); sfx.win(); await new Promise(r => setTimeout(r, 400)); return 'ok:' + sfx.state(); } catch (e) { return 'err:' + e.message; }
+    try { sfx.unlock(); sfx.pick(2); sfx.lift(); sfx.place(); sfx.nope(); sfx.fill(1, 1, 2, 0, 0.5); sfx.glug(1, 2, 0, 0.3); sfx.drops(3, 3, 0, 0.08); sfx.done(2); sfx.win(); await new Promise(r => setTimeout(r, 400)); return 'ok:' + sfx.state(); } catch (e) { return 'err:' + e.message; }
   });
   check('sounds play without errors', snd.startsWith('ok'), snd);
   await page.close();
@@ -263,7 +273,7 @@ w = 300; ims = [im.resize((w, int(im.height * w / im.width))) for im in ims]
 h = max(im.height for im in ims); sheet = Image.new('RGB', (len(ims) * (w + 8) + 8, h + 16), (24, 28, 40))
 for k, im in enumerate(ims): sheet.paste(im, (8 + k * (w + 8), 8))
 sheet.save(sys.argv[1], quality=82)
-`, path.join(out, 'sheet.jpg'), ...['pour-393-mid', 'balls-393-mid', 'cork-liquid', 'cork-balls', 'tut1-hand', 'tut1-good', 'tut2-marks', 'selected'].map(f => path.join(out, f + '.png'))]);
+`, path.join(out, 'sheet.jpg'), ...['pour-393-mid', 'balls-393-mid', 'done-liquid', 'done-balls', 'tut1-hand', 'tut1-good', 'tut2-marks', 'selected'].map(f => path.join(out, f + '.png'))]);
 } catch (e) { console.log('sheet skipped:', e.message.split('\n')[0]); }
 console.log(`\n${results.filter(r => r.ok).length}/${results.length} passed`);
 process.exit(results.every(r => r.ok) ? 0 : 1);

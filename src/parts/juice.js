@@ -4,15 +4,15 @@
      a level (horizontal) surface while the flask tilts, the tilt grows as it empties, a stream falls into the target
      and the target fills smoothly; then the flask flies home. Driven frame by frame (requestAnimationFrame).
    - Balls: they fly out over the top in an arc one by one and bounce on landing.
-   - A finished tube: a gold cork drops in and screws itself tight, a gold spiral with sparks runs down the tube,
-     bubbles rise inside. The last tube plays it fully before the win window.
+   - A finished tube: a gold spiral with sparks runs down the tube, bubbles rise inside (the cork was removed
+     on the founder's request, 07.11 afternoon). The last tube plays it fully before the win window.
    - Sounds (synthesised, no files): bubbling whose pitch rises as the target fills, lift / put down, a soft "no",
-     the cork's pop and squeak, a short win tune with chords. Loudness: CFG.sfxVol.
+     a chime in the finished tube's colour, a short win tune with chords. Loudness: CFG.sfxVol.
    - Tutorial: level 1 — a pointing hand and "pour only onto the same colour" for the first moves, "Great!" after a move;
      level 2 — ✓ / ✗ over the tubes once one is picked. Skipped for players who already passed those levels.
    - The picked tube glows (sky blue in the B look).
    Game hooks (game.html): pour() → pourLiquid / pourBalls / celebrateTube / juiceAfterMove, setSelected → juiceSelected,
-   startLevel → juiceLevelStart, fillTube → corkSync. */
+   startLevel → juiceLevelStart. */
 
 Object.assign(CFG, {
   pourMs: 1050,        // one liquid pour (flight there, pouring, flight back) at normal speed, + pourMsPerLayer per layer
@@ -26,7 +26,7 @@ Object.assign(T.uk, { tutPour: 'Наливай лише на той самий �
 Object.assign(T.en, { tutPour: 'Only pour onto the same colour or into an empty tube', tutGood: 'Great!', tutCheck: 'Green ✓ — you can pour here, red ✕ — you can’t' });
 
 document.head.insertAdjacentHTML('beforeend', `<style>
-/* liquid tubes no longer clip their content (a cork sits on top); the bottom layer carries the round bottom itself */
+/* liquid tubes do not clip their content (bubbles, effects); the bottom layer carries the round bottom itself */
 .liquid .tube { overflow: visible; }
 .liquid .layer.bot { border-radius: 0 0 calc(var(--b) / 2 + 3px) calc(var(--b) / 2 + 3px); }
 /* the picked tube glows */
@@ -45,14 +45,6 @@ html[data-style="b"] .board .tube.sel { box-shadow: 0 0 0 2px var(--ui-out), 0 0
   clip-path: polygon(28% 0, 72% 0, 100% 100%, 0 100%);
   background: linear-gradient(90deg, color-mix(in srgb, var(--c) 80%, #000), var(--c) 30%, color-mix(in srgb, var(--c) 70%, #fff) 50%, var(--c) 70%, color-mix(in srgb, var(--c) 80%, #000)); }
 .drop { position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; pointer-events: none; z-index: 5; background: var(--c); }
-/* cork on a finished tube */
-.cork { position: absolute; left: 50%; top: calc(var(--b) * -0.34); width: calc(var(--b) * 0.74); height: calc(var(--b) * 0.6); transform: translateX(-50%); z-index: 3; pointer-events: none;
-  border: 2px solid var(--ui-out); border-radius: 4px 4px 3px 3px;
-  background: repeating-linear-gradient(160deg, rgba(255,255,255,0) 0 5px, rgba(42, 26, 0, 0.22) 5px 7px), linear-gradient(90deg, var(--ui-gold-b), var(--ui-gold-a) 32%, var(--ui-gold-hi) 50%, var(--ui-gold-a) 68%, var(--ui-gold-b));
-  background-size: 100% 14px, 100% 100%; }
-.cork::before { content: ""; position: absolute; left: -4px; right: -4px; top: -2px; height: 38%; border-radius: 5px; border: 2px solid var(--ui-out); background: linear-gradient(var(--ui-gold-hi), var(--ui-gold-a) 60%, var(--ui-gold-b)); }
-.cork.twist { animation: corkTwist 420ms linear 1; }
-@keyframes corkTwist { from { background-position: 0 0, 0 0; } to { background-position: 0 42px, 0 0; } }
 .helix { position: absolute; pointer-events: none; z-index: 7; overflow: visible; }
 .bubble { position: absolute; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; pointer-events: none; z-index: 2; border: 1.5px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.25); }
 /* tutorial */
@@ -70,7 +62,7 @@ html[data-style="b"] .board .tube.sel { box-shadow: 0 0 0 2px var(--ui-out), 0 0
   font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; color: var(--ui-text);
   background: linear-gradient(var(--ui-green-a), var(--ui-green-b)); border: 3px solid var(--ui-out); box-shadow: 0 4px 0 var(--ui-out); }
 @keyframes tutPop { from { transform: scale(0.3); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .tut-hand svg, .tut-hand::before, .cork.twist { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tut-hand svg, .tut-hand::before { animation: none; } }
 </style>`);
 
 /* ---------- small helpers ---------- */
@@ -220,7 +212,7 @@ async function pourLiquid(i, j, n, color, reduce, hurry = 1) {
       a = dir * tiltOf(V);
     } else {                  // fly home and straighten, with a little overshoot ("turn back")
       const e = jEase((t - tBack) / (1 - tBack));
-      V = V1; x = dx * (1 - e); y = dy * (1 - e) - Math.sin(e * Math.PI) * 10;
+      V = V1; q = 1; x = dx * (1 - e); y = dy * (1 - e) - Math.sin(e * Math.PI) * 10;
       const aEnd = tiltOf(V1);
       a = dir * (aEnd * (1 - e) - Math.sin(e * Math.PI) * 0.16);
     }
@@ -292,31 +284,13 @@ async function pourBalls(i, j, n, color, reduce, hurry = 1) {
   await Promise.all(done);
 }
 
-/* ---------- finished tube: cork, spiral, bubbles ---------- */
+/* ---------- finished tube: spiral, sparks, bubbles ---------- */
 let juiceBusyUntil = 0;
-function corkSync(tube, done) {
-  const c = tube.querySelector('.cork');
-  if (done && !c) { const k = document.createElement('div'); k.className = 'cork'; tube.appendChild(k); }
-  else if (!done && c) c.remove();
-}
 function celebrateTube(j, color) {
   const tube = tubeEl(j); if (!tube) return;
-  corkSync(tube, true);
-  const cork = tube.querySelector('.cork');
-  sfx.cork(color);
+  sfx.done(color);
   if (jReduce()) return;
-  juiceBusyUntil = performance.now() + 1100;
-  // cork: drops from above with a bounce, then screws in
-  cork.animate([
-    { transform: 'translate(-50%, -64px) scale(0.9)', opacity: 0 },
-    { transform: 'translate(-50%, -64px) scale(0.9)', opacity: 1, offset: 0.08 },
-    { transform: 'translate(-50%, 3px) scale(1.12, 0.86)', offset: 0.55, easing: 'ease-out' },
-    { transform: 'translate(-50%, -4px) scale(0.96, 1.05)', offset: 0.75, easing: 'ease-in' },
-    { transform: 'translate(-50%, 0)' }
-  ], { duration: 360, easing: 'cubic-bezier(.5,0,.8,.6)' }).finished.then(() => {
-    cork.classList.remove('twist'); void cork.offsetWidth; cork.classList.add('twist');
-    setTimeout(() => cork.classList.remove('twist'), 450);
-  }, () => {});
+  juiceBusyUntil = performance.now() + 950;
   // gold spiral running down the tube, with sparks
   const r = jHome(tube), sr = stage.getBoundingClientRect();
   const pad = 14, W = r.w + pad * 2, H = r.h + 20;
@@ -330,8 +304,8 @@ function celebrateTube(j, color) {
   svg.innerHTML = `<path d="${d}" fill="none" stroke="var(--ui-gold-a)" stroke-width="6" stroke-linecap="round" style="filter: drop-shadow(0 0 4px var(--ui-gold))"/><path d="${d}" fill="none" stroke="var(--ui-gold-hi)" stroke-width="2.4" stroke-linecap="round"/>`;
   stage.appendChild(svg);
   const len = svg.querySelector('path').getTotalLength(), seg = len * 0.42;
-  svg.querySelectorAll('path').forEach(p => { p.style.strokeDasharray = `${seg} ${len}`; p.animate([{ strokeDashoffset: seg }, { strokeDashoffset: -len }], { duration: 760, delay: 260, easing: 'ease-in-out', fill: 'both' }); });
-  svg.animate([{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 1050 }).finished.then(() => svg.remove(), () => svg.remove());
+  svg.querySelectorAll('path').forEach(p => { p.style.strokeDasharray = `${seg} ${len}`; p.animate([{ strokeDashoffset: seg }, { strokeDashoffset: -len }], { duration: 760, delay: 60, easing: 'ease-in-out', fill: 'both' }); });
+  svg.animate([{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 850 }).finished.then(() => svg.remove(), () => svg.remove());
   for (let k = 0; k < 9; k++) {
     const u = (k + 0.5) / 9, p = pts[Math.round(u * 80)];
     const s = document.createElement('span'); s.className = 'spark';
@@ -340,7 +314,7 @@ function celebrateTube(j, color) {
     stage.appendChild(s);
     const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 16;
     s.animate([{ transform: 'scale(0)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.25 }, { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0.2)`, opacity: 0 }],
-      { duration: 520, delay: 260 + u * 700, easing: 'ease-out', fill: 'backwards' }).finished.then(() => s.remove(), () => s.remove());
+      { duration: 520, delay: 60 + u * 700, easing: 'ease-out', fill: 'backwards' }).finished.then(() => s.remove(), () => s.remove());
   }
   // bubbles rising inside
   const inner = tube.clientWidth, hgt = tube.clientHeight;
@@ -350,7 +324,7 @@ function celebrateTube(j, color) {
     const sz = 0.6 + (k % 3) * 0.3; b.style.transform = `scale(${sz})`;
     tube.appendChild(b);
     b.animate([{ transform: `translate(0,0) scale(${sz})`, opacity: 0 }, { opacity: 1, offset: 0.15 }, { transform: `translate(${(k % 2 ? 3 : -3)}px, ${-(hgt * 0.75)}px) scale(${sz})`, opacity: 0 }],
-      { duration: 900 + k * 60, delay: 200 + k * 90, easing: 'ease-in', fill: 'backwards' }).finished.then(() => b.remove(), () => b.remove());
+      { duration: 900 + k * 60, delay: 40 + k * 90, easing: 'ease-in', fill: 'backwards' }).finished.then(() => b.remove(), () => b.remove());
   }
 }
 
@@ -399,13 +373,11 @@ function celebrateTube(j, color) {
     glug: (c, n, start, dur) => sfx.fill(c, 0, n, start, dur),
     // balls landing: a click with a little ring, a step up for every ball
     drops: (c, n, firstAt, step) => { for (let k = 0; k < n; k++) { osc(note(c) * (1 + k * 0.06), firstAt + k * step, 0.18, 0.08 - k * 0.012); osc(1300, firstAt + k * step, 0.03, 0.02, 'triangle'); } },
-    // cork: pop, squeak while it screws in, then a bright chime in the tube's colour
-    cork: c => {
-      noise(0.32, 0.05, 0.12, 'bandpass', 1500, 1.4); osc(720, 0.32, 0.09, 0.07, 'sine', 240);
-      osc(1500, 0.42, 0.12, 0.015, 'triangle', 1900); osc(1700, 0.56, 0.1, 0.012, 'triangle', 2100);
-      [0, 1.5, 2].forEach((m, k) => osc(note(c) * m || note(c), 0.62 + k * 0.07, 0.4, 0.06));
+    // finished tube: a short shimmer and a bright chime in the tube's colour, while the spiral runs
+    done: c => {
+      noise(0.02, 0.35, 0.02, 'highpass', 5000, 0.7);
+      [1, 1.5, 2].forEach((m, k) => osc(note(c) * m, 0.04 + k * 0.08, 0.45, 0.06));
     },
-    done: c => sfx.cork(c),
     // win: a quick arpeggio up, then I – IV – V – I with a top melody
     win: () => {
       const N = m => 440 * Math.pow(2, (m - 69) / 12);

@@ -1123,7 +1123,6 @@ function fillTube(tube, i, t = S.tubes[i], h = S.hidden[i]) {
     tube.appendChild(el);
   });
   tube.classList.toggle('done', isDoneTube(t));
-  corkSync(tube, isDoneTube(t));
   tube.querySelectorAll('.lock').forEach(el => el.remove());
   tube.classList.toggle('locked', isLocked(i));
   if (isLocked(i)) {
@@ -1340,7 +1339,7 @@ function pour(i, j) {
   }).catch(e => { console.error(e); if (S === myS) { S.tcount = {}; render(); } });
   S.anim[i] = S.anim[j] = p;
   S.pending.add(p); p.finally(() => S.pending && S.pending.delete(p));
-  // the last finished tube plays its cork and spiral before the win window
+  // the last finished tube plays its spiral before the win window
   if (won) animIdle().then(() => { if (S === myS) setTimeout(win, Math.max(350, juiceBusyUntil - performance.now())); });
 }
 // Redraw one tube from a snapshot; balls that stopped being hidden get the reveal pop.
